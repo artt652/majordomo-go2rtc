@@ -93,7 +93,7 @@ $dictionary = array(
 	'GO2RTC_RULE_USERS_EXCEPT'     => 'all users except',
 	'GO2RTC_SAVE'                  => 'Save',
 	'GO2RTC_SCENE_CODE'            => 'Scene code',
-	'GO2RTC_SCENE_CODE_HELP'       => 'Paste into a scene "HTML" element or a template. Size: width and height (e.g. width="320" height="180"); own label: caption="…" (camera title by default). The camera is shown to those allowed in "Access".',
+	'GO2RTC_SCENE_CODE_HELP'       => 'Paste into a scene "HTML" element or a template. Size: width and height (e.g. width="320" height="180"); own label: caption="…" (camera title by default); start with sound: muted="0" (the browser may refuse until the page is tapped — then muted, use the 🔇 button). The camera is shown to those allowed in "Access".',
 	'GO2RTC_SCENE_LIVE'            => 'Live video:',
 	'GO2RTC_SCENE_SNAPSHOT'        => 'Snapshots, click for fullscreen video:',
 	'GO2RTC_SHARE'                 => 'Share',

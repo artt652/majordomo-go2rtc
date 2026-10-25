@@ -18,12 +18,13 @@ include_once(DIR_MODULES . 'go2rtc/go2rtc_lib.inc.php');
 
 class go2rtc extends module
 {
-    // параметры вставки [#module name="go2rtc" cam="…" mode="…" width="…" height="…" caption="…"#]
+    // параметры вставки [#module name="go2rtc" cam="…" mode="…" width="…" height="…" caption="…" muted="0"#]
     var $cam;
     var $mode;
     var $width;
     var $height;
     var $caption;
+    var $muted;
     var $ajax;
 
     function __construct()
@@ -273,7 +274,8 @@ class go2rtc extends module
     // Вставка камеры в сцену, меню или шаблон: [#module name="go2rtc" cam="door"#]
     //   cam    — имя потока go2rtc (или ID камеры модуля);
     //   mode   — snapshot (по умолчанию: снимки, нажатие — видео на весь экран) | live (сразу видео в блоке);
-    //   width, height — размер блока (CSS, по умолчанию 100% и 16:9); caption — подпись (по умолчанию — название камеры).
+    //   width, height — размер блока (CSS, по умолчанию 100% и 16:9); caption — подпись (по умолчанию — название камеры);
+    //   muted  — 1 (по умолчанию: без звука, включается кнопкой) | 0 (сразу со звуком, если у камеры он есть).
     // Видит тот, кому камера разрешена (правило «Контроля доступа», вход по сессии ядра). Ссылки — на 24 часа,
     // открытая сутками сцена (планшет на стене) берёт новые сама: /ajax/go2rtc.html?op=renew&cam=…
     function usual(&$out)
@@ -311,6 +313,9 @@ class go2rtc extends module
             $height .= 'px';
         }
         $title = ($this->caption != '') ? (string)$this->caption : go2rtcCameraTitle($cam);
+        // muted="0" — сразу со звуком (видео в блоке; окно на весь экран — после нажатия, там браузер разрешит всегда);
+        // без нажатия браузер может не дать — тогда без звука
+        $muted = !in_array(strtolower(trim((string)$this->muted)), array('0', 'false', 'no', 'off'), true);
         $links = $this->embedLinks($cam);
         $texts = array('live' => go2rtcLang('GO2RTC_CAM_LIVE'), 'snapshot' => go2rtcLang('GO2RTC_CAM_SNAPSHOT'),
             'offline' => go2rtcLang('GO2RTC_CAM_OFFLINE'), 'close' => go2rtcLang('GO2RTC_CLOSE'),
@@ -330,16 +335,16 @@ class go2rtc extends module
         $html .= '<div class="go2rtc-embed" id="' . $id . '" style="width:' . $h($width) . ';' . ($height != '' ? 'height:' . $h($height) : 'aspect-ratio:16/9') . '">'
             . '<div class="go2rtc-embed-box" style="width:100%;height:100%" data-off="' . $h($texts['offline']) . '"></div>'
             . ($title != '' ? '<div class="go2rtc-embed-title">' . $h($title) . '</div>' : '')
-            . (($mode == 'live' && $links['audio']) ? '<button type="button" class="go2rtc-embed-sound" title="' . $h($texts['sound_on']) . '">🔇</button>' : '')
+            . (($mode == 'live' && $links['audio']) ? '<button type="button" class="go2rtc-embed-sound" title="' . $h($texts[$muted ? 'sound_on' : 'sound_off']) . '">' . ($muted ? '🔇' : '🔊') . '</button>' : '')
             . '</div>'
             . '<script>(function(){var el=document.getElementById(' . json_encode($id) . '),L=' . json_encode($links, $flags) . ',t=' . json_encode($texts, $flags)
-            . ',mode=' . json_encode($mode) . ',title=' . json_encode($title, $flags) . ',renew=' . json_encode(ROOTHTML . 'ajax/go2rtc.html?op=renew&cam=' . rawurlencode($cam), $flags) . ',v=null,muted=true,snd=el.querySelector(".go2rtc-embed-sound");'
+            . ',mode=' . json_encode($mode) . ',title=' . json_encode($title, $flags) . ',renew=' . json_encode(ROOTHTML . 'ajax/go2rtc.html?op=renew&cam=' . rawurlencode($cam), $flags) . ',v=null,muted=' . ($muted ? 'true' : 'false') . ',startMuted=muted,snd=el.querySelector(".go2rtc-embed-sound");'
             // звук (видео в блоке): кнопка 🔇/🔊; при обновлении ссылок — как был
             . 'function icon(m){muted=m;if(snd){snd.textContent=m?"\uD83D\uDD07":"\uD83D\uDD0A";snd.title=m?t.sound_on:t.sound_off;}}'
             . 'if(snd)snd.addEventListener("click",function(e){e.stopPropagation();if(v)v.mute(!v.mute());});'
             . 'function start(){var box=el.querySelector(".go2rtc-embed-box"),p=go2rtcViewer.capture(box);if(v)v.stop();box.innerHTML="";'
             . 'v=go2rtcViewer(box,{poster:p,audio:L.audio,muted:muted,onmute:icon,frame:L.frame,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,live:mode=="live",width:mode=="live"?1280:640,interval:3000,lazy:true});}'
-            . 'start();if(mode!="live")el.addEventListener("click",function(){go2rtcViewer.open({title:title,poster:go2rtcViewer.capture(el),audio:L.audio,frame:L.frame_hq,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,width:1280,texts:t});});'
+            . 'start();if(mode!="live")el.addEventListener("click",function(){go2rtcViewer.open({title:title,poster:go2rtcViewer.capture(el),audio:L.audio,muted:startMuted,frame:L.frame_hq,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,width:1280,texts:t});});'
             // ссылки на 24 часа: каждые 6 часов — новые (с той же сессией и проверкой прав); просмотр — заново с ними, без чёрного экрана
             . 'setInterval(function(){fetch(renew,{credentials:"same-origin",cache:"no-store"}).then(function(r){return r.json();}).then(function(j){if(j&&j.frame){L=j;start();}}).catch(function(){});},6*3600*1000);'
             . '})();</script>';

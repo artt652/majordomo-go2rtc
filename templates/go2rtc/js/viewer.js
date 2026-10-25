@@ -227,7 +227,16 @@
 			pc.addTransceiver('video', {direction: 'recvonly'});
 			if (audio) pc.addTransceiver('audio', {direction: 'recvonly'});
 			pc.ontrack = function (e) {
-				if (!video.srcObject) video.srcObject = e.streams[0] || new MediaStream([e.track]);
+				if (!video.srcObject) {
+					video.srcObject = e.streams[0] || new MediaStream([e.track]);
+					// со звуком браузер может не запустить без нажатия — тогда без звука (как плеер go2rtc)
+					try {
+						var pr = video.play();
+						if (pr && pr.catch) pr.catch(function () {
+							if (!video.muted) { video.muted = true; video.play().catch(function () {}); }
+						});
+					} catch (er) {}
+				}
 			};
 			video.addEventListener('playing', function () { if (!live && pc) showLive('whep', video); });
 			pc.createOffer().then(function (o) { return pc.setLocalDescription(o); }).then(function () {
