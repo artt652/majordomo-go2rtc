@@ -1,0 +1,244 @@
+<!-- Камеры (go2rtc) в панели управления: «Камеры» (просмотр), «Настройки», «Права», «Ссылки».
+     Раскладка: метка над полем на телефоне, слева — с планшета; сетка камер — плитки по ширине экрана -->
+<style>
+	@media (max-width: 767px) {
+		.g2-pair > div + div { margin-top: 6px; }
+	}
+	.g2-num { max-width: 140px; }
+	.g2-cam .panel-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+	.g2-cam .panel-heading label { font-weight: normal; margin: 0; }
+	.g2-cam .g2-checks label { font-weight: normal; margin: 0 16px 6px 0; display: inline-flex; align-items: center; gap: 5px; }
+	.g2-cam .g2-checks + .g2-checks { margin-top: 8px; }
+	.g2-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+	.g2-tile { background: #111; border-radius: 6px; overflow: hidden; cursor: pointer; position: relative; }
+	.g2-tile .go2rtc-view { aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; position: relative; }
+	.g2-tile img, .g2-tile video, .g2-live img, .g2-live video { width: 100%; height: 100%; object-fit: contain; }
+	.go2rtc-off img { opacity: .35; }
+	.g2-tile .go2rtc-off::after, .g2-live .go2rtc-off::after { content: attr(data-off); position: absolute; color: #ddd; }
+	.g2-cap { padding: 6px 10px; color: #eee; font-size: 13px; display: flex; justify-content: space-between; gap: 8px; }
+	.g2-cap small { color: #9aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.g2-live { position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 2000; display: none; flex-direction: column; }
+	.g2-live.on { display: flex; }
+	.g2-live header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; color: #eee; }
+	.g2-live header b { font-size: 16px; }
+	.g2-live header span { color: #9aa; flex: 1; }
+	.g2-live header button { background: none; border: 0; color: #eee; font-size: 28px; line-height: 1; }
+	.g2-live .go2rtc-view { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; }
+</style>
+<ul class="nav nav-tabs" id="g2_tabs">
+	<li class="active"><a href="#tab_cameras" data-tab="tab_cameras"><#LANG_GO2RTC_TAB_CAMERAS#></a></li>
+	<li><a href="#tab_settings" data-tab="tab_settings"><#LANG_GO2RTC_TAB_SETTINGS#></a></li>
+	<li><a href="#tab_access" data-tab="tab_access"><#LANG_GO2RTC_TAB_ACCESS#></a></li>
+	<li><a href="#tab_links" data-tab="tab_links"><#LANG_GO2RTC_TAB_LINKS#></a></li>
+</ul>
+<div class="tab-content" style="padding-top:15px">
+
+<!-- камеры: снимки плитками, нажатие — живое видео на весь экран -->
+<div class="tab-pane active" id="tab_cameras">
+[#if ENABLED!="1"#]<p class="help-block"><#LANG_GO2RTC_NOT_SET#></p>[#endif ENABLED#]
+[#if ENABLED="1"#][#if HAS_CAMERAS!="1"#]<p class="help-block"><#LANG_GO2RTC_NO_CAMERAS#></p>[#endif HAS_CAMERAS#][#endif ENABLED#]
+<div class="g2-grid">
+[#begin GRID#]
+	<div class="g2-tile" data-name="[#NAME#]" data-frame="[#FRAME#]" data-whep="[#WHEP#]">
+		<div class="g2-box" data-off="<#LANG_GO2RTC_CAM_OFFLINE#>"></div>
+		<div class="g2-cap"><b>[#NAME#]</b><small title="[#WHO#]">[#WHO#]</small></div>
+	</div>
+[#end GRID#]
+</div>
+</div>
+
+<div class="tab-pane" id="tab_settings">
+[#if GO2RTC_SAVED="1"#]<div class="alert alert-success"><#LANG_DATA_SAVED#></div>[#endif GO2RTC_SAVED#]
+<p class="help-block"><#LANG_GO2RTC_HELP#></p>
+<form action="?" method="post" class="form-horizontal">
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_URL#>:</label>
+	<div class="col-sm-8 col-md-6">
+		<input type="text" name="go2rtc_url" class="form-control" value="[#GO2RTC_URL#]" placeholder="http://127.0.0.1:1984">
+		<p class="help-block">[#if GO2RTC_STATUS!=""#][#GO2RTC_STATUS#][#else GO2RTC_STATUS#]<#LANG_GO2RTC_URL_HELP#>[#endif GO2RTC_STATUS#]</p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_API_LOGIN#>:</label>
+	<div class="col-sm-8 col-md-6">
+		<div class="row g2-pair">
+			<div class="col-sm-6"><input type="text" name="go2rtc_user" class="form-control" value="[#GO2RTC_USER#]" autocomplete="off" placeholder="<#LANG_GO2RTC_LOGIN#>"></div>
+			<div class="col-sm-6"><input type="password" name="go2rtc_password" class="form-control" value="[#GO2RTC_PASSWORD#]" autocomplete="new-password" placeholder="<#LANG_GO2RTC_PASSWORD#>"></div>
+		</div>
+		<p class="help-block"><#LANG_GO2RTC_API_LOGIN_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_DEVICE_URL#>:</label>
+	<div class="col-sm-8 col-md-6">
+		<input type="text" name="go2rtc_device_url" class="form-control" value="[#GO2RTC_DEVICE_URL#]" placeholder="[#GO2RTC_DEVICE_AUTO#]">
+		<p class="help-block"><#LANG_GO2RTC_DEVICE_URL_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label">RTSP:</label>
+	<div class="col-sm-8 col-md-6">
+		<div class="row g2-pair">
+			<div class="col-sm-3"><input type="number" min="1" max="65535" name="go2rtc_rtsp_port" class="form-control" value="[#GO2RTC_RTSP_PORT#]" placeholder="8554" title="<#LANG_GO2RTC_PORT#>"></div>
+			<div class="col-sm-4"><input type="text" name="go2rtc_rtsp_user" class="form-control" value="[#GO2RTC_RTSP_USER#]" autocomplete="off" placeholder="<#LANG_GO2RTC_LOGIN#>"></div>
+			<div class="col-sm-5"><input type="password" name="go2rtc_rtsp_password" class="form-control" value="[#GO2RTC_RTSP_PASSWORD#]" autocomplete="new-password" placeholder="<#LANG_GO2RTC_PASSWORD#>"></div>
+		</div>
+		<p class="help-block"><#LANG_GO2RTC_RTSP_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_WAIT#>:</label>
+	<div class="col-sm-8 col-md-6">
+		<input type="number" min="2" max="25" name="go2rtc_wait" class="form-control g2-num" value="[#GO2RTC_WAIT#]" placeholder="6">
+		<p class="help-block"><#LANG_GO2RTC_WAIT_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<div class="col-sm-offset-4 col-md-offset-3 col-sm-8 col-md-6">
+		<div class="checkbox"><label><input type="checkbox" name="go2rtc_webtorrent" value="1"[#if GO2RTC_WEBTORRENT="1"#] checked[#endif#]> <#LANG_GO2RTC_WEBTORRENT#></label></div>
+		<p class="help-block"><#LANG_GO2RTC_WEBTORRENT_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_WT_MINUTES#>:</label>
+	<div class="col-sm-8 col-md-6"><input type="number" min="1" max="1440" name="go2rtc_wt_minutes" class="form-control g2-num" value="[#GO2RTC_WT_MINUTES#]" placeholder="10"></div>
+</div>
+<div class="form-group">
+	<div class="col-sm-offset-4 col-md-offset-3 col-sm-8 col-md-6"><button type="submit" class="btn btn-primary"><#LANG_GO2RTC_SAVE#></button></div>
+</div>
+<input type="hidden" name="go2rtc_save" value="1">
+</form>
+</div>
+<div class="tab-pane" id="tab_access">
+[#if HAS_CAMERAS!="1"#]<p class="help-block"><#LANG_GO2RTC_NO_CAMERAS#></p>[#endif HAS_CAMERAS#]
+[#if HAS_CAMERAS="1"#]
+<!-- права на камеры: администратор видит все; остальным — по отметкам (без отметок — только администратору).
+     Карточка на камеру (а не таблица): списки терминалов и пользователей переносятся по ширине — и на телефоне -->
+<p class="help-block"><#LANG_GO2RTC_CAMERA_ACCESS_HELP#></p>
+[#if ACCESS_SAVED="1"#]<div class="alert alert-success"><#LANG_DATA_SAVED#></div>[#endif ACCESS_SAVED#]
+<form action="?" method="post" class="g2-cam">
+[#begin CAMERAS#]
+<div class="panel panel-default">
+	<div class="panel-heading">
+		<b>📹 [#NAME#]</b>
+		<label><input type="checkbox" name="access[[#KEY#]][all]" value="1"[#if ALL="1"#] checked[#endif ALL#]> <#LANG_GO2RTC_CAMERA_EVERYONE#></label>
+	</div>
+	<div class="panel-body">
+		<div class="g2-checks">
+			<div class="text-muted small"><#LANG_GO2RTC_CAMERA_TERMINALS#>:</div>
+			[#begin TERMINALS#]<label><input type="checkbox" name="access[[#KEY#]][terminals][]" value="[#NAME#]"[#if ON="1"#] checked[#endif ON#]> [#TITLE#]</label>[#end TERMINALS#]
+		</div>
+		<div class="g2-checks">
+			<div class="text-muted small"><#LANG_GO2RTC_CAMERA_USERS#>:</div>
+			[#begin USERS#]<label><input type="checkbox" name="access[[#KEY#]][users][]" value="[#ID#]"[#if ON="1"#] checked[#endif ON#]> [#TITLE#]</label>[#end USERS#]
+		</div>
+	</div>
+</div>
+[#end CAMERAS#]
+<button type="submit" class="btn btn-primary"><#LANG_GO2RTC_SAVE#></button>
+<input type="hidden" name="access_save" value="1">
+</form>
+[#endif HAS_CAMERAS#]
+</div>
+
+<!-- ссылки: временный доступ участникам чата, гостевые ссылки, WebTorrent — закрыть -->
+<div class="tab-pane" id="tab_links">
+[#if LINK_CLOSED="1"#]<div class="alert alert-success"><#LANG_GO2RTC_LINK_CLOSED#></div>[#endif LINK_CLOSED#]
+<p class="help-block"><#LANG_GO2RTC_LINKS_HELP#></p>
+[#if HAS_LINKS="1"#]
+<div class="table-responsive">
+<table class="table table-striped">
+<thead><tr><th><#LANG_GO2RTC_CAMERA#></th><th><#LANG_GO2RTC_LINK_KIND#></th><th><#LANG_GO2RTC_LINK_BY#></th><th><#LANG_GO2RTC_LINK_UNTIL#></th><th></th></tr></thead>
+<tbody>
+[#begin LINKS#]
+	<tr>
+		<td><b>[#CAM#]</b></td>
+		<td>[#KIND#]</td>
+		<td>[#BY#]</td>
+		<td>[#UNTIL#]</td>
+		<td class="text-right">[#if SHARE="1"#]<a href="?share_close=[#ID#]" class="btn btn-default btn-sm" onclick="return confirm('<#LANG_GO2RTC_LINK_CLOSE_CONFIRM#>');"><#LANG_GO2RTC_LINK_CLOSE#></a>[#else SHARE#]<a href="?link_close=[#ID#]" class="btn btn-default btn-sm" onclick="return confirm('<#LANG_GO2RTC_LINK_CLOSE_CONFIRM#>');"><#LANG_GO2RTC_LINK_CLOSE#></a>[#endif SHARE#]</td>
+	</tr>
+[#end LINKS#]
+</tbody>
+</table>
+</div>
+[#else HAS_LINKS#]
+<p><#LANG_GO2RTC_LINKS_EMPTY#></p>
+[#endif HAS_LINKS#]
+</div>
+
+</div>
+
+<div class="g2-live" id="g2_live">
+	<header><b id="g2_live_name"></b><span id="g2_live_state"></span><button type="button" id="g2_live_close" aria-label="<#LANG_GO2RTC_CLOSE#>">×</button></header>
+	<div id="g2_live_box" data-off="<#LANG_GO2RTC_CAM_OFFLINE#>"></div>
+</div>
+<script src="<#ROOTHTML#>templates/go2rtc/js/viewer.js"></script>
+<script type="text/javascript">
+	(function () {
+		// вкладки: без bootstrap.js; после сохранения — та же вкладка (TAB от сервера), иначе — из адреса (#tab_…)
+		var nav = document.getElementById('g2_tabs');
+		function show(id) {
+			Array.prototype.forEach.call(nav.querySelectorAll('a[data-tab]'), function (a) {
+				var on = a.getAttribute('data-tab') == id;
+				a.parentNode.classList.toggle('active', on);
+				document.getElementById(a.getAttribute('data-tab')).classList.toggle('active', on);
+			});
+			grid(id == 'tab_cameras');
+		}
+		Array.prototype.forEach.call(nav.querySelectorAll('a[data-tab]'), function (a) {
+			a.addEventListener('click', function (e) {
+				e.preventDefault();
+				show(a.getAttribute('data-tab'));
+				if (window.history && history.replaceState) history.replaceState(null, '', '#' + a.getAttribute('data-tab'));
+			});
+		});
+
+		// сетка: снимки, пока вкладка открыта и страница видна; нажатие — живое видео
+		var wait = [#WAIT#] || 6, tiles = [], gridOn = false;
+		function grid(on) {
+			on = on && !document.hidden;
+			if (on == gridOn) return;
+			gridOn = on;
+			Array.prototype.forEach.call(document.querySelectorAll('.g2-tile'), function (tile, i) {
+				if (on) {
+					var box = tile.querySelector('.g2-box');
+					box.innerHTML = '';
+					tiles[i] = go2rtcViewer(box, {frame: tile.getAttribute('data-frame'), width: 480, interval: 3000, wait: wait});
+				} else if (tiles[i]) {
+					tiles[i].stop();
+					tiles[i] = null;
+				}
+			});
+		}
+		document.addEventListener('visibilitychange', function () {
+			grid(document.getElementById('tab_cameras').classList.contains('active'));
+		});
+		var live = document.getElementById('g2_live'), liveView = null;
+		var texts = {live: '<#LANG_GO2RTC_CAM_LIVE#>', snapshot: '<#LANG_GO2RTC_CAM_SNAPSHOT#>', offline: '<#LANG_GO2RTC_CAM_OFFLINE#>'};
+		function closeLive() {
+			if (liveView) liveView.stop();
+			liveView = null;
+			live.classList.remove('on');
+			grid(true);
+		}
+		Array.prototype.forEach.call(document.querySelectorAll('.g2-tile'), function (tile) {
+			tile.addEventListener('click', function () {
+				grid(false);
+				var box = document.getElementById('g2_live_box');
+				box.innerHTML = '';
+				document.getElementById('g2_live_name').textContent = '📹 ' + tile.getAttribute('data-name');
+				var state = document.getElementById('g2_live_state');
+				state.textContent = texts.snapshot;
+				live.classList.add('on');
+				liveView = go2rtcViewer(box, {frame: tile.getAttribute('data-frame'), whep: tile.getAttribute('data-whep'), live: true,
+					width: 1280, controls: true, wait: wait, onstate: function (s) { state.textContent = texts[s] || ''; }});
+			});
+		});
+		document.getElementById('g2_live_close').addEventListener('click', closeLive);
+		document.addEventListener('keydown', function (e) { if (e.key == 'Escape' && liveView) closeLive(); });
+
+		var start = '[#TAB#]' || (location.hash || '').substr(1);
+		show(start && document.getElementById(start) ? start : 'tab_cameras');
+	})();
+</script>
