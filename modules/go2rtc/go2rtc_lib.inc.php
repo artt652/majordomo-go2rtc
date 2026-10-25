@@ -884,11 +884,15 @@ function go2rtcCameraLinkObject($camera)
             setGlobal($object . '.' . $property, $value, array('go2rtc' => '0'));
         }
     };
-    $set('streamURL', go2rtcUrl($camera['NAME'], 'rtsp'));
-    $set('streamURL_HQ', !empty($camera['HQ_NAME']) && go2rtcHas($camera['HQ_NAME']) ? go2rtcUrl($camera['HQ_NAME'], 'rtsp') : '');
-    // кадр для сервера: адрес API (на этой машине — без пароля; иначе логин API в ссылке, видна только в свойствах объекта)
+    // кадр для сервера: адрес API (на этой машине — без пароля; иначе логин API в ссылке, видна только в свойствах объекта).
+    // Сначала кадр: превью устройства (метод updatePreview, его вызывает изменение streamURL) берёт snapshotURL, если он есть,
+    // иначе — кадр из RTSP через ffmpeg (модуль thumb)
     $auth = ($cfg['user'] != '') ? rawurlencode($cfg['user']) . ':' . rawurlencode($cfg['password']) . '@' : '';
     $set('snapshotURL', preg_replace('#^(https?://)#i', '$1' . $auth, $cfg['url']) . '/api/frame.jpeg?src=' . rawurlencode($camera['NAME']));
+    $set('streamURL', go2rtcUrl($camera['NAME'], 'rtsp'));
+    $set('streamURL_HQ', !empty($camera['HQ_NAME']) && go2rtcHas($camera['HQ_NAME']) ? go2rtcUrl($camera['HQ_NAME'], 'rtsp') : '');
+    // превью пересобрать и тогда, когда адреса потоков не менялись (устройство, созданное раньше, — с превью из RTSP)
+    callMethod($object . '.updatePreview');
     return true;
 }
 
