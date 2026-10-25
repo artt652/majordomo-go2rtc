@@ -323,15 +323,22 @@ class go2rtc extends module
                 . '.go2rtc-embed .go2rtc-view{display:flex;align-items:center;justify-content:center;width:100%;height:100%}'
                 . '.go2rtc-embed .go2rtc-off img{opacity:.35}.go2rtc-embed .go2rtc-off::after{content:attr(data-off);position:absolute;color:#ddd}'
                 . '.go2rtc-embed-title{position:absolute;left:0;right:0;bottom:0;padding:4px 8px;color:#fff;font-size:13px;'
-                . 'background:linear-gradient(transparent,rgba(0,0,0,.6));pointer-events:none}</style>';
+                . 'background:linear-gradient(transparent,rgba(0,0,0,.6));pointer-events:none}'
+                . '.go2rtc-embed-sound{position:absolute;right:6px;top:6px;z-index:1;width:32px;height:32px;border:0;border-radius:16px;'
+                . 'background:rgba(0,0,0,.5);color:#fff;font-size:16px;line-height:1;cursor:pointer;padding:0}</style>';
         }
         $html .= '<div class="go2rtc-embed" id="' . $id . '" style="width:' . $h($width) . ';' . ($height != '' ? 'height:' . $h($height) : 'aspect-ratio:16/9') . '">'
             . '<div class="go2rtc-embed-box" style="width:100%;height:100%" data-off="' . $h($texts['offline']) . '"></div>'
-            . ($title != '' ? '<div class="go2rtc-embed-title">' . $h($title) . '</div>' : '') . '</div>'
+            . ($title != '' ? '<div class="go2rtc-embed-title">' . $h($title) . '</div>' : '')
+            . (($mode == 'live' && $links['audio']) ? '<button type="button" class="go2rtc-embed-sound" title="' . $h($texts['sound_on']) . '">🔇</button>' : '')
+            . '</div>'
             . '<script>(function(){var el=document.getElementById(' . json_encode($id) . '),L=' . json_encode($links, $flags) . ',t=' . json_encode($texts, $flags)
-            . ',mode=' . json_encode($mode) . ',title=' . json_encode($title, $flags) . ',renew=' . json_encode(ROOTHTML . 'ajax/go2rtc.html?op=renew&cam=' . rawurlencode($cam), $flags) . ',v=null;'
+            . ',mode=' . json_encode($mode) . ',title=' . json_encode($title, $flags) . ',renew=' . json_encode(ROOTHTML . 'ajax/go2rtc.html?op=renew&cam=' . rawurlencode($cam), $flags) . ',v=null,muted=true,snd=el.querySelector(".go2rtc-embed-sound");'
+            // звук (видео в блоке): кнопка 🔇/🔊; при обновлении ссылок — как был
+            . 'function icon(m){muted=m;if(snd){snd.textContent=m?"\uD83D\uDD07":"\uD83D\uDD0A";snd.title=m?t.sound_on:t.sound_off;}}'
+            . 'if(snd)snd.addEventListener("click",function(e){e.stopPropagation();if(v)v.mute(!v.mute());});'
             . 'function start(){var box=el.querySelector(".go2rtc-embed-box"),p=go2rtcViewer.capture(box);if(v)v.stop();box.innerHTML="";'
-            . 'v=go2rtcViewer(box,{poster:p,audio:L.audio,frame:L.frame,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,live:mode=="live",width:mode=="live"?1280:640,interval:3000,lazy:true});}'
+            . 'v=go2rtcViewer(box,{poster:p,audio:L.audio,muted:muted,onmute:icon,frame:L.frame,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,live:mode=="live",width:mode=="live"?1280:640,interval:3000,lazy:true});}'
             . 'start();if(mode!="live")el.addEventListener("click",function(){go2rtcViewer.open({title:title,poster:go2rtcViewer.capture(el),audio:L.audio,frame:L.frame_hq,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,width:1280,texts:t});});'
             // ссылки на 24 часа: каждые 6 часов — новые (с той же сессией и проверкой прав); просмотр — заново с ними, без чёрного экрана
             . 'setInterval(function(){fetch(renew,{credentials:"same-origin",cache:"no-store"}).then(function(r){return r.json();}).then(function(j){if(j&&j.frame){L=j;start();}}).catch(function(){});},6*3600*1000);'
