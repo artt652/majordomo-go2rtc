@@ -15,12 +15,14 @@
 	.g2-tile img, .g2-tile video, .g2-live img, .g2-live video { width: 100%; height: 100%; object-fit: contain; }
 	.go2rtc-off img { opacity: .35; }
 	.g2-tile .go2rtc-off::after, .g2-live .go2rtc-off::after { content: attr(data-off); position: absolute; color: #ddd; }
-	.g2-cap { padding: 6px 10px; color: #eee; font-size: 13px; display: flex; justify-content: space-between; gap: 8px; }
+	.g2-cap { padding: 6px 10px; color: #eee; font-size: 13px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 	.g2-cap small { color: #9aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: right; }
-	.g2-gear { color: #9aa; text-decoration: none; font-size: 16px; line-height: 1; background: none; border: 0; padding: 0 0 0 4px; cursor: pointer; }
+	.g2-gear { color: #9aa; text-decoration: none; font-size: 16px; line-height: 1; background: none; border: 0; padding: 0; cursor: pointer;
+		width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 	.g2-gear:hover, .g2-gear:focus { color: #fff; text-decoration: none; }
 	.g2-tile .go2rtc-live::after { content: '\25CF'; position: absolute; left: 8px; top: 4px; color: #e33; font-size: 14px; }
-	.g2-tile .g2-share { padding: 0 10px 10px; }
+	/* поделиться — поверх снимка, сетку не сдвигает */
+	.g2-tile .g2-share { position: absolute; left: 0; right: 0; top: 0; padding: 10px; background: rgba(0,0,0,.85); z-index: 2; }
 	.g2-live { position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 2000; display: none; flex-direction: column; }
 	.g2-live.on { display: flex; }
 	.g2-live header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; color: #eee; }
@@ -244,8 +246,8 @@
 			});
 		});
 
-		// сетка: снимки, пока вкладка открыта и страница видна; нажатие на плитку — живое видео в ней (одна плитка)
-		var wait = [#WAIT#] || 6, tiles = [], gridOn = false, playing = -1;
+		// сетка: снимки, пока вкладка открыта и страница видна; нажатие на плитку — живое видео в ней (ещё раз — снова снимки)
+		var wait = [#WAIT#] || 6, tiles = [], gridOn = false, playing = [];
 		var tileList = document.querySelectorAll('.g2-tile');
 		function tileView(i, isLive) {
 			var tile = tileList[i], box = tile.querySelector('.g2-box');
@@ -261,11 +263,10 @@
 		function grid(on) {
 			on = on && !document.hidden;
 			if (on == gridOn) return;
-			gridOn = on;
-			playing = -1;
+			gridOn = on;   // какие плитки играли — запомнено: вернулись на вкладку или закрыли окно — снова играют
 			Array.prototype.forEach.call(tileList, function (tile, i) {
 				if (on) {
-					tileView(i, false);
+					tileView(i, !!playing[i]);
 				} else if (tiles[i]) {
 					tiles[i].stop();
 					tiles[i] = null;
@@ -302,10 +303,8 @@
 		Array.prototype.forEach.call(tileList, function (tile, i) {
 			tile.addEventListener('click', function () {
 				if (!gridOn) return;
-				var was = playing;
-				if (was >= 0) tileView(was, false);
-				playing = (was == i) ? -1 : i;
-				if (playing == i) tileView(i, true);
+				playing[i] = !playing[i];
+				tileView(i, playing[i]);
 			});
 			tile.querySelector('.g2-full').addEventListener('click', function (e) {
 				e.stopPropagation();
