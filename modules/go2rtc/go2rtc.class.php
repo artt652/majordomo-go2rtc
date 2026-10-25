@@ -2,8 +2,9 @@
 /**
  * Камеры (go2rtc) — модуль MajorDoMo.
  *
- * Панель управления: «Камеры» (просмотр), «Настройки» (go2rtc), «Права» (кому какие камеры), «Ссылки» (временный доступ,
- * гостевые ссылки, WebTorrent). Функции для других модулей и сценариев — go2rtc_lib.inc.php (константа GO2RTC_API).
+ * Панель управления: «Камеры» (просмотр; у каждой камеры — название, порядок, второй поток, привязка к объекту),
+ * «Настройки» (go2rtc), «Права» (правила «Контроля доступа» ядра на каждую камеру), «Ссылки» (временный доступ,
+ * гостевые ссылки, WebTorrent). Вставка в сцены и страницы — usual() ([#module name="go2rtc" cam="…"#]). Функции для других модулей и сценариев — go2rtc_lib.inc.php (константа GO2RTC_API).
  *
  * Входы api.php/module/go2rtc/… (ядро вызывает api()):
  *   frame?src=…&exp=…&sig=…  — кадр камеры по подписанной ссылке (go2rtcSignedUrl); &w= — ширина;
@@ -17,6 +18,14 @@ include_once(DIR_MODULES . 'go2rtc/go2rtc_lib.inc.php');
 
 class go2rtc extends module
 {
+    // параметры вставки [#module name="go2rtc" cam="…" mode="…" width="…" height="…" caption="…"#]
+    var $cam;
+    var $mode;
+    var $width;
+    var $height;
+    var $caption;
+    var $ajax;
+
     function __construct()
     {
         $this->name = 'go2rtc';
@@ -38,6 +47,8 @@ class go2rtc extends module
         $out = array();
         if ($this->action == 'admin') {
             $this->admin($out);
+        } else {
+            $this->usual($out);
         }
         $out['ACTION'] = $this->action;
         $this->data = $out;
@@ -70,27 +81,28 @@ class go2rtc extends module
             $out['GO2RTC_SAVED'] = 1;
             $out['TAB'] = 'tab_settings';
         }
-        // права на камеры: камера => все / терминалы / пользователи (без записи — только администратору)
-        if (gr('access_save')) {
-            $posted = gr('access');
-            $posted = is_array($posted) ? $posted : array();
-            $access = array();
-            foreach (go2rtcStreams() as $name) {
-                $key = md5($name);
-                $rule = isset($posted[$key]) && is_array($posted[$key]) ? $posted[$key] : array();
-                $item = array(
-                    'all' => !empty($rule['all']) ? 1 : 0,
-                    'terminals' => array_values(array_filter(isset($rule['terminals']) ? (array)$rule['terminals'] : array(), 'is_string')),
-                    'users' => array_values(array_unique(array_map('intval', isset($rule['users']) ? (array)$rule['users'] : array()))),
-                );
-                if ($item['all'] || count($item['terminals']) || count($item['users'])) {
-                    $access[$name] = $item;
-                }
-            }
-            go2rtcAccessSave($access);
-            $this->getConfig();
+        // камеры без правила «Контроля доступа»: только администратору или всем
+        if (gr('default_access_save')) {
+            $this->config['GO2RTC_DEFAULT_ACCESS'] = (gr('default_access') == 'all') ? 'all' : 'admin';
+            $this->saveConfig();
             $out['ACCESS_SAVED'] = 1;
             $out['TAB'] = 'tab_access';
+        }
+        // поделиться камерой из панели: гостевая ссылка на N минут или ссылка WebTorrent
+        $share_cam = (string)gr('share_cam');
+        if ($share_cam != '' && go2rtcHas($share_cam) && (gr('guest_create') || gr('wt_create'))) {
+            if (gr('guest_create')) {
+                global $session;
+                $by_title = (is_object($session) && !empty($session->data['SITE_USERNAME'])) ? $session->data['SITE_USERNAME'] : 'admin';
+                $id = go2rtcLinkCreate($share_cam, 'guest', max(1, min(43200, gr('share_minutes', 'int'))), array(), 'admin', $by_title);
+                $out['NEW_LINK'] = $h(go2rtcGuestUrl($id));
+            } else {
+                $share = go2rtcShare($share_cam);
+                $out['NEW_LINK'] = !empty($share['url']) ? $h($share['url']) : '';
+                $out['NEW_LINK_FAILED'] = empty($share['url']) ? 1 : 0;
+            }
+            $out['NEW_LINK_CAM'] = $h(go2rtcCameraTitle($share_cam));
+            $out['TAB'] = 'tab_links';
         }
         // закрыть временный доступ, гостевую ссылку или ссылку WebTorrent
         if (gr('link_close') != '') {
@@ -106,13 +118,23 @@ class go2rtc extends module
         if (gr('tab') != '' && preg_match('/^tab_\w+$/', (string)gr('tab'))) {
             $out['TAB'] = (string)gr('tab');
         }
+        go2rtcCamerasSync();
+        go2rtcRulesMigrate();
+        // камера: название, порядок, второй поток, привязка к объекту
+        $camera = gr('camera_id', 'int') ? go2rtcCameraGet(gr('camera_id', 'int')) : array();
+        if (!empty($camera['ID'])) {
+            $this->adminCamera($camera, $out, $h);
+            return;
+        }
 
         foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_RTSP_PORT', 'GO2RTC_RTSP_USER',
             'GO2RTC_RTSP_PASSWORD', 'GO2RTC_WT_MINUTES', 'GO2RTC_WAIT') as $key) {
             $out[$key] = $h(isset($this->config[$key]) ? $this->config[$key] : '');
         }
         $out['GO2RTC_WEBTORRENT'] = !empty($this->config['GO2RTC_WEBTORRENT']) ? 1 : 0;
+        $out['WEBTORRENT'] = $out['GO2RTC_WEBTORRENT'];
         $out['ENABLED'] = go2rtcEnabled() ? 1 : 0;
+        $out['DIRECT'] = $h(go2rtcDirectBase());
         $cfg = go2rtcConfig();
         $out['WAIT'] = (int)$cfg['wait'];
         $out['CAMERAS'] = array();
@@ -121,45 +143,36 @@ class go2rtc extends module
             $streams = go2rtcStreams();
             $out['GO2RTC_STATUS'] = $h(sprintf(go2rtcLang('GO2RTC_STREAMS'), count($streams)));
             $out['GO2RTC_DEVICE_AUTO'] = $h(go2rtcDeviceBase());
-            $access = go2rtcAccess();
-            $all_terms = SQLSelect("SELECT NAME, TITLE FROM terminals ORDER BY TITLE");
-            $all_users = SQLSelect("SELECT ID, NAME, USERNAME FROM users ORDER BY NAME");
-            // просмотр в панели: подписанные ссылки на 12 часов (страница открыта долго)
+            // просмотр в панели: подписанные ссылки на 12 часов (страница открыта долго); камеры — по порядку из таблицы
             $exp = time() + 12 * 3600;
+            $titles = array();
+            $out['HIDDEN_CAMERAS'] = array();
+            foreach (go2rtcCameraList(true) as $row) {
+                $titles[$row['NAME']] = $row;
+                if ((int)$row['HIDDEN']) {
+                    $out['HIDDEN_CAMERAS'][] = array('ID' => (int)$row['ID'], 'TITLE' => $h($row['TITLE']));
+                }
+            }
+            $streams = array_values(array_filter(array_keys($titles), 'go2rtcHas'));
             foreach ($streams as $name) {
-                $rule = isset($access[$name]) ? $access[$name] : array();
-                $who = array();
-                if (!empty($rule['all'])) {
-                    $who[] = go2rtcLang('GO2RTC_CAMERA_EVERYONE');
-                } else {
-                    foreach ($all_terms as $t) {
-                        if (!empty($rule['terminals']) && in_array($t['NAME'], (array)$rule['terminals'], true)) {
-                            $who[] = $t['TITLE'];
-                        }
-                    }
-                    foreach ($all_users as $u) {
-                        if (!empty($rule['users']) && in_array((int)$u['ID'], array_map('intval', (array)$rule['users']), true)) {
-                            $who[] = $u['NAME'] != '' ? $u['NAME'] : $u['USERNAME'];
-                        }
-                    }
+                $row = $titles[$name];
+                $who = go2rtcRuleText($row['ID']);
+                $hq = go2rtcCameraHq($name);
+                $grid = array('ID' => (int)$row['ID'], 'NAME' => $h($name), 'TITLE' => $h($row['TITLE']), 'HIDDEN' => (int)$row['HIDDEN'],
+                    'FRAME' => $h(go2rtcSignedUrl('frame', $name, $exp)), 'FRAME_HQ' => $h(go2rtcSignedUrl('frame', $hq, $exp)),
+                    'WHEP' => $h(go2rtcSignedUrl('whep', $hq, $exp)), 'HQ' => $h($hq), 'LINKED' => $h($row['LINKED_OBJECT']),
+                    'WHO' => $h($who), 'RULE' => go2rtcRuleDefined($row['ID']) ? 1 : 0);
+                if (!(int)$row['HIDDEN']) {
+                    $out['GRID'][] = $grid;
                 }
-                $out['GRID'][] = array('NAME' => $h($name), 'FRAME' => $h(go2rtcSignedUrl('frame', $name, $exp)),
-                    'WHEP' => $h(go2rtcSignedUrl('whep', $name, $exp)),
-                    'WHO' => $h(count($who) ? implode(', ', $who) : go2rtcLang('GO2RTC_CAMERA_ADMIN_ONLY')));
-                $camera = array('NAME' => $h($name), 'KEY' => md5($name), 'ALL' => !empty($rule['all']) ? 1 : 0,
-                    'TERMINALS' => array(), 'USERS' => array());
-                foreach ($all_terms as $t) {
-                    $camera['TERMINALS'][] = array('KEY' => $camera['KEY'], 'NAME' => $h($t['NAME']), 'TITLE' => $h($t['TITLE']),
-                        'ON' => (!empty($rule['terminals']) && in_array($t['NAME'], (array)$rule['terminals'], true)) ? 1 : 0);
-                }
-                foreach ($all_users as $u) {
-                    $camera['USERS'][] = array('KEY' => $camera['KEY'], 'ID' => (int)$u['ID'], 'TITLE' => $h($u['NAME'] != '' ? $u['NAME'] : $u['USERNAME']),
-                        'ON' => (!empty($rule['users']) && in_array((int)$u['ID'], array_map('intval', (array)$rule['users']), true)) ? 1 : 0);
-                }
-                $out['CAMERAS'][] = $camera;
+                $out['CAMERAS'][] = array('ID' => (int)$row['ID'], 'TITLE' => $h($row['TITLE']), 'NAME' => $h($name), 'WHO' => $h($who),
+                    'RULE' => go2rtcRuleDefined($row['ID']) ? 1 : 0);
             }
         }
         $out['HAS_CAMERAS'] = count($out['CAMERAS']) ? 1 : 0;
+        $out['DEFAULT_ACCESS'] = go2rtcDefaultAccess();
+        $out['HAS_RULES'] = SQLSelectOne("SHOW TABLES LIKE 'security_rules'") ? 1 : 0;
+        $out['HAS_HIDDEN'] = !empty($out['HIDDEN_CAMERAS']) ? 1 : 0;
         if (!$out['ENABLED'] && $out['TAB'] == '') {
             $out['TAB'] = 'tab_settings';
         }
@@ -170,14 +183,157 @@ class go2rtc extends module
             return date('Y-m-d', $time) == date('Y-m-d') ? date('H:i', $time) : date('d.m H:i', $time);
         };
         foreach (go2rtcLinks() as $id => $link) {
-            $out['LINKS'][] = array('ID' => $id, 'CAM' => $h($link['cam']),
+            $out['LINKS'][] = array('ID' => $id, 'CAM' => $h(go2rtcCameraTitle($link['cam'])),
                 'KIND' => $h(go2rtcLang($link['kind'] == 'guest' ? 'GO2RTC_LINK_GUEST' : 'GO2RTC_LINK_CHAT')),
-                'BY' => $h($link['by_title']), 'UNTIL' => $fmt($link['expires']), 'SHARE' => 0);
+                'BY' => $h($link['by_title']), 'UNTIL' => $fmt($link['expires']), 'SHARE' => 0,
+                'URL' => ($link['kind'] == 'guest') ? $h(go2rtcGuestUrl($id)) : '');
         }
         foreach (go2rtcShares() as $name => $expires) {
-            $out['LINKS'][] = array('ID' => $h($name), 'CAM' => $h($name), 'KIND' => 'WebTorrent', 'BY' => '', 'UNTIL' => $fmt($expires), 'SHARE' => 1);
+            $out['LINKS'][] = array('ID' => $h($name), 'CAM' => $h(go2rtcCameraTitle($name)), 'KIND' => 'WebTorrent', 'BY' => '', 'UNTIL' => $fmt($expires), 'SHARE' => 1, 'URL' => '');
         }
         $out['HAS_LINKS'] = count($out['LINKS']) ? 1 : 0;
+    }
+
+    // Настройки камеры: название, порядок, скрыть, поток высокого качества, привязка к объекту
+    function adminCamera($camera, &$out, $h)
+    {
+        $id = (int)$camera['ID'];
+        if (gr('camera_save')) {
+            $old_object = $camera['LINKED_OBJECT'];
+            $old_show = $camera['SHOW_PROPERTY'];
+            $clean = function ($value) {
+                return preg_replace('/[^\w\-.]/u', '', trim((string)$value));
+            };
+            $camera['TITLE'] = trim((string)gr('title')) != '' ? mb_substr(trim((string)gr('title')), 0, 255, 'UTF-8') : $camera['NAME'];
+            $camera['PRIORITY'] = gr('priority', 'int');
+            $camera['HIDDEN'] = gr('hidden', 'int') ? 1 : 0;
+            $hq = trim((string)gr('hq_name'));
+            $camera['HQ_NAME'] = ($hq != '' && $hq != $camera['NAME'] && go2rtcHas($hq)) ? $hq : '';
+            foreach (array('LINKED_OBJECT', 'ONLINE_PROPERTY', 'VIEWERS_PROPERTY', 'SHOW_PROPERTY', 'STATE_METHOD') as $field) {
+                $camera[$field] = $clean(gr(strtolower($field)));
+            }
+            SQLUpdate('go2rtc_cameras', $camera);
+            // «показать на терминале» — свойство объекта, изменение которого модуль ловит (propertySetHandle)
+            if ($old_object != '' && $old_show != '' && ($old_object != $camera['LINKED_OBJECT'] || $old_show != $camera['SHOW_PROPERTY'])) {
+                removeLinkedProperty($old_object, $old_show, $this->name);
+            }
+            if ($camera['LINKED_OBJECT'] != '' && $camera['SHOW_PROPERTY'] != '') {
+                addLinkedProperty($camera['LINKED_OBJECT'], $camera['SHOW_PROPERTY'], $this->name);
+            }
+            go2rtcCameraLinkObject($camera);
+            $out['CAMERA_SAVED'] = 1;
+        }
+        // создать устройство «Камера» (модуль «Устройства»): объект SCameras, привязанный к этой камере
+        if (gr('device_create') && $camera['LINKED_OBJECT'] == '' && is_file(DIR_MODULES . 'devices/devices.class.php')) {
+            include_once(DIR_MODULES . 'devices/devices.class.php');
+            $devices = new devices();
+            $devices->addDevice('camera', array('TITLE' => $camera['TITLE'], 'TABLE' => 'go2rtc_cameras', 'TABLE_ID' => $id));
+            $camera = go2rtcCameraGet($id);
+            if ($camera['LINKED_OBJECT'] != '') {
+                if ($camera['SHOW_PROPERTY'] != '') {
+                    addLinkedProperty($camera['LINKED_OBJECT'], $camera['SHOW_PROPERTY'], $this->name);
+                }
+                go2rtcCameraLinkObject($camera);
+                DebMes('go2rtc: device ' . $camera['LINKED_OBJECT'] . ' created for ' . $camera['NAME'], 'go2rtc');
+                $out['DEVICE_CREATED'] = 1;
+            }
+        }
+        foreach (array('ID', 'NAME', 'TITLE', 'PRIORITY', 'HIDDEN', 'HQ_NAME', 'LINKED_OBJECT', 'ONLINE_PROPERTY', 'VIEWERS_PROPERTY', 'SHOW_PROPERTY', 'STATE_METHOD') as $field) {
+            $out['CAMERA_' . $field] = $h($camera[$field]);
+        }
+        $out['CAMERA_ONLINE'] = (int)$camera['ONLINE'];
+        $out['CAMERA_CHECKED'] = !empty($camera['CHECKED']) ? date('d.m H:i', (int)$camera['CHECKED']) : '';
+        $out['CAMERA_DEVICE'] = ($camera['LINKED_OBJECT'] != '' && in_array('SCameras', go2rtcObjectClasses($camera['LINKED_OBJECT']), true)) ? 1 : 0;
+        $out['CAN_CREATE_DEVICE'] = ($camera['LINKED_OBJECT'] == '' && is_file(DIR_MODULES . 'devices/devices.class.php')) ? 1 : 0;
+        $out['HQ_OPTIONS'] = array();
+        foreach (go2rtcStreams() as $name) {
+            if ($name != $camera['NAME']) {
+                $out['HQ_OPTIONS'][] = array('NAME' => $h($name), 'SELECTED' => ($name == $camera['HQ_NAME']) ? 1 : 0);
+            }
+        }
+        $exp = time() + 12 * 3600;
+        $out['CAMERA_FRAME'] = $h(go2rtcSignedUrl('frame', $camera['NAME'], $exp));
+        $out['WAIT'] = (int)go2rtcConfig()['wait'];
+        $out['DIRECT'] = $h(go2rtcDirectBase());
+    }
+
+    // Вставка камеры в сцену, меню или шаблон: [#module name="go2rtc" cam="door"#]
+    //   cam    — имя потока go2rtc (или ID камеры модуля);
+    //   mode   — snapshot (по умолчанию: снимки, нажатие — видео на весь экран) | live (сразу видео в блоке);
+    //   width, height — размер блока (CSS, по умолчанию 100% и 16:9); caption — подпись (по умолчанию — название камеры).
+    // Видит тот, кому камера разрешена (правило «Контроля доступа», вход по сессии ядра). Ссылки — на 24 часа,
+    // открытая сутками сцена (планшет на стене) берёт новые сама: /ajax/go2rtc.html?op=renew&cam=…
+    function usual(&$out)
+    {
+        go2rtcLoadLanguage();
+        $cam = (string)($this->cam != '' ? $this->cam : gr('cam'));
+        if (preg_match('/^\d+$/', $cam)) {
+            $row = go2rtcCameraGet((int)$cam);
+            $cam = !empty($row['NAME']) ? $row['NAME'] : $cam;
+        }
+        $allowed = go2rtcEnabled() && $cam != '' && go2rtcAllowedNow($cam);
+        if (($this->ajax || gr('ajax')) && gr('op') == 'renew') {
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store');
+            echo json_encode($allowed ? $this->embedLinks($cam) : array('ok' => 0));
+            exit;
+        }
+        if (!$allowed) {
+            $out['EMBED'] = '';
+            return;
+        }
+        static $n = 0;
+        $n++;
+        $h = function ($text) {
+            return htmlspecialchars((string)$text, ENT_QUOTES, 'UTF-8');
+        };
+        $id = 'go2rtc_embed_' . $n . '_' . substr(md5($cam . mt_rand()), 0, 6);
+        $mode = ($this->mode == 'live' || gr('mode') == 'live') ? 'live' : 'snapshot';
+        $width = preg_match('/^\d+(\.\d+)?(px|%|em|rem|vw|vh)?$/', (string)$this->width) ? (string)$this->width : '100%';
+        if (preg_match('/^\d+$/', $width)) {
+            $width .= 'px';
+        }
+        $height = preg_match('/^\d+(\.\d+)?(px|%|em|rem|vw|vh)?$/', (string)$this->height) ? (string)$this->height : '';
+        if (preg_match('/^\d+$/', $height)) {
+            $height .= 'px';
+        }
+        $title = ($this->caption != '') ? (string)$this->caption : go2rtcCameraTitle($cam);
+        $links = $this->embedLinks($cam);
+        $texts = array('live' => go2rtcLang('GO2RTC_CAM_LIVE'), 'snapshot' => go2rtcLang('GO2RTC_CAM_SNAPSHOT'),
+            'offline' => go2rtcLang('GO2RTC_CAM_OFFLINE'), 'close' => go2rtcLang('GO2RTC_CLOSE'));
+        $flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+        $html = '';
+        if ($n == 1) {
+            $html .= '<script src="' . $h(ROOTHTML . 'templates/go2rtc/js/viewer.js') . '"></script>'
+                . '<style>.go2rtc-embed{position:relative;background:#111;border-radius:6px;overflow:hidden;cursor:pointer}'
+                . '.go2rtc-embed .go2rtc-view{display:flex;align-items:center;justify-content:center;width:100%;height:100%}'
+                . '.go2rtc-embed .go2rtc-off img{opacity:.35}.go2rtc-embed .go2rtc-off::after{content:attr(data-off);position:absolute;color:#ddd}'
+                . '.go2rtc-embed-title{position:absolute;left:0;right:0;bottom:0;padding:4px 8px;color:#fff;font-size:13px;'
+                . 'background:linear-gradient(transparent,rgba(0,0,0,.6));pointer-events:none}</style>';
+        }
+        $html .= '<div class="go2rtc-embed" id="' . $id . '" style="width:' . $h($width) . ';' . ($height != '' ? 'height:' . $h($height) : 'aspect-ratio:16/9') . '">'
+            . '<div class="go2rtc-embed-box" style="width:100%;height:100%" data-off="' . $h($texts['offline']) . '"></div>'
+            . ($title != '' ? '<div class="go2rtc-embed-title">' . $h($title) . '</div>' : '') . '</div>'
+            . '<script>(function(){var el=document.getElementById(' . json_encode($id) . '),L=' . json_encode($links, $flags) . ',t=' . json_encode($texts, $flags)
+            . ',mode=' . json_encode($mode) . ',title=' . json_encode($title, $flags) . ',renew=' . json_encode(ROOTHTML . 'ajax/go2rtc.html?op=renew&cam=' . rawurlencode($cam), $flags) . ',v=null;'
+            . 'function start(){if(v)v.stop();var box=el.querySelector(".go2rtc-embed-box");box.innerHTML="";'
+            . 'v=go2rtcViewer(box,{frame:L.frame,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,live:mode=="live",width:mode=="live"?1280:640,interval:3000,lazy:true});}'
+            . 'start();if(mode!="live")el.addEventListener("click",function(){go2rtcViewer.open({title:title,frame:L.frame_hq,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,width:1280,texts:t});});'
+            // ссылки на 24 часа: каждые 6 часов — новые (с той же сессией и проверкой прав)
+            . 'setInterval(function(){fetch(renew,{credentials:"same-origin",cache:"no-store"}).then(function(r){return r.json();}).then(function(j){if(j&&j.frame){L=j;if(mode=="live"||!v)start();}}).catch(function(){});},6*3600*1000);'
+            . '})();</script>';
+        $out['EMBED'] = $html;
+    }
+
+    // Ссылки для вставки: кадр и WebRTC (подписанные, на 24 часа), второй поток, прямой адрес go2rtc
+    function embedLinks($cam)
+    {
+        $exp = time() + 24 * 3600;
+        $hq = go2rtcCameraHq($cam);
+        $cfg = go2rtcConfig();
+        return array('ok' => 1, 'frame' => go2rtcSignedUrl('frame', $cam, $exp), 'frame_hq' => go2rtcSignedUrl('frame', $hq, $exp),
+            'whep' => go2rtcSignedUrl('whep', $hq, $exp), 'hq' => $hq, 'direct' => go2rtcDirectBase(),
+            'player' => ROOTHTML . 'templates/go2rtc/js/video-rtc.js', 'wait' => (int)$cfg['wait'], 'exp' => $exp);
     }
 
     // Входы api.php/module/go2rtc/… — см. начало файла
@@ -231,6 +387,9 @@ class go2rtc extends module
         if ($op == 'guest') {
             $this->guestPage($cam, $link, $id);
         }
+        if ($op == 'embed' && $id == '') {
+            $this->embedPage($cam, isset($params['exp']) ? (int)$params['exp'] : 0, isset($params['mode']) && $params['mode'] == 'snapshot' ? 'snapshot' : 'live');
+        }
         header('HTTP/1.1 404 Not Found');
         exit;
     }
@@ -280,10 +439,52 @@ class go2rtc extends module
         exit;
     }
 
+    // Страница одной камеры для внешних панелей (iframe: Lovelace, другие системы) по подписанной ссылке
+    // api.php/module/go2rtc/embed?src=…&exp=…&sig=… (go2rtcEmbedUrl): видео (или снимки — &mode=snapshot) на всю страницу
+    function embedPage($cam, $exp, $mode)
+    {
+        go2rtcLoadLanguage();
+        header('Content-Type: text/html; charset=utf-8');
+        header('X-Robots-Tag: noindex, nofollow');
+        if ($cam == '') {
+            header('HTTP/1.1 404 Not Found');
+            echo '<!doctype html><html><body style="margin:0;background:#000"></body></html>';
+            exit;
+        }
+        $cfg = go2rtcConfig();
+        $hq = go2rtcCameraHq($cam);
+        $flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES;
+        $opts = array('frame' => go2rtcSignedUrl('frame', $mode == 'live' ? $hq : $cam, $exp), 'whep' => go2rtcSignedUrl('whep', $hq, $exp),
+            'direct' => go2rtcDirectBase() != '' ? array('base' => go2rtcDirectBase(), 'src' => $hq) : null,
+            'player' => ROOTHTML . 'templates/go2rtc/js/video-rtc.js', 'wait' => (int)$cfg['wait'], 'live' => $mode == 'live',
+            'width' => 1280, 'interval' => 3000);
+        echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+            . '<meta name="referrer" content="no-referrer"><title>' . htmlspecialchars(go2rtcCameraTitle($cam), ENT_QUOTES, 'UTF-8') . '</title>'
+            . '<style>html,body{margin:0;height:100%;background:#000}#v{width:100%;height:100%}.go2rtc-off img{opacity:.35}</style>'
+            . '<script src="' . htmlspecialchars(ROOTHTML . 'templates/go2rtc/js/viewer.js', ENT_QUOTES, 'UTF-8') . '"></script></head>'
+            . '<body><div id="v"></div><script>go2rtcViewer(document.getElementById("v"),' . json_encode($opts, $flags) . ');</script></body></html>';
+        exit;
+    }
+
     function processSubscription($event, $details = '')
     {
         if ($event == 'MINUTELY') {
             go2rtcCleanup();
+            go2rtcCamerasSync();
+            // состояние камер для привязанных объектов — заданием (MINUTELY не ждёт камер)
+            $linked = SQLSelectOne("SELECT ID FROM go2rtc_cameras WHERE MISSING=0 AND LINKED_OBJECT!='' LIMIT 1");
+            if (!empty($linked['ID'])) {
+                setTimeOut('go2rtc_check', "include_once(DIR_MODULES . 'go2rtc/go2rtc_lib.inc.php'); go2rtcCamerasCheck();", 0);
+            }
+        }
+    }
+
+    // Свойство привязанного объекта изменилось (addLinkedProperty): «показать на терминале»
+    function propertySetHandle($object, $property, $value)
+    {
+        $cameras = SQLSelect("SELECT * FROM go2rtc_cameras WHERE LINKED_OBJECT LIKE '" . DBSafe($object) . "' AND SHOW_PROPERTY LIKE '" . DBSafe($property) . "'");
+        foreach ($cameras as $camera) {
+            go2rtcCameraShowProperty($camera, $value);
         }
     }
 
@@ -294,12 +495,14 @@ class go2rtc extends module
         // настройки камер из «Сообщений» (или из полной версии «Терминалов») — когда запись модуля уже есть
         $this->migrateSettings();
         go2rtcSecret();
+        go2rtcRulesMigrate();
     }
 
     function uninstall()
     {
         unsubscribeFromEvent($this->name, 'MINUTELY');
         SQLDropTable('go2rtc_links');
+        SQLDropTable('go2rtc_cameras');
         parent::uninstall();
     }
 
@@ -317,6 +520,27 @@ class go2rtc extends module
  go2rtc_links: EXPIRES int(10) NOT NULL DEFAULT '0'
  go2rtc_links: INDEX (LINK_ID)
  go2rtc_links: INDEX (CAM)
+
+ go2rtc_cameras: ID int(10) unsigned NOT NULL auto_increment
+ go2rtc_cameras: NAME varchar(100) NOT NULL DEFAULT ''
+ go2rtc_cameras: TITLE varchar(255) NOT NULL DEFAULT ''
+ go2rtc_cameras: PRIORITY int(10) NOT NULL DEFAULT '0'
+ go2rtc_cameras: HIDDEN int(3) NOT NULL DEFAULT '0'
+ go2rtc_cameras: MISSING int(3) NOT NULL DEFAULT '0'
+ go2rtc_cameras: HQ_NAME varchar(100) NOT NULL DEFAULT ''
+ go2rtc_cameras: LINKED_OBJECT varchar(100) NOT NULL DEFAULT ''
+ go2rtc_cameras: LINKED_PROPERTY varchar(100) NOT NULL DEFAULT ''
+ go2rtc_cameras: LINKED_METHOD varchar(100) NOT NULL DEFAULT ''
+ go2rtc_cameras: ONLINE_PROPERTY varchar(100) NOT NULL DEFAULT ''
+ go2rtc_cameras: VIEWERS_PROPERTY varchar(100) NOT NULL DEFAULT ''
+ go2rtc_cameras: SHOW_PROPERTY varchar(100) NOT NULL DEFAULT ''
+ go2rtc_cameras: STATE_METHOD varchar(100) NOT NULL DEFAULT ''
+ go2rtc_cameras: ONLINE int(3) NOT NULL DEFAULT '0'
+ go2rtc_cameras: VIEWERS int(10) NOT NULL DEFAULT '0'
+ go2rtc_cameras: CHECKED int(10) NOT NULL DEFAULT '0'
+ go2rtc_cameras: ADDED int(10) NOT NULL DEFAULT '0'
+ go2rtc_cameras: INDEX (NAME)
+ go2rtc_cameras: INDEX (LINKED_OBJECT)
 EOD;
         parent::dbInstall($data);
     }

@@ -4,4 +4,7 @@
 [#if ACTION="admin"#]
 <!-- Control Panel -->
  [#inc action_admin.html#]
+[#else ACTION#]
+<!-- вставка камеры в сцену или страницу (usual) -->
+[#EMBED#]
 [#endif ACTION#]
