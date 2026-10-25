@@ -363,7 +363,12 @@ class go2rtc extends module
             }
         }
         if ($op == 'frame') {
-            $jpeg = ($cam != '') ? go2rtcFrame($cam, min(1280, max(0, isset($params['w']) ? (int)$params['w'] : 0))) : '';
+            $width = min(1280, max(0, isset($params['w']) ? (int)$params['w'] : 0));
+            // last=1 — последний сохранённый кадр (первый показ без ожидания камеры), нет его — свежий
+            $jpeg = ($cam != '' && !empty($params['last'])) ? go2rtcFrameLast($cam, $width) : '';
+            if ($jpeg == '' && $cam != '') {
+                $jpeg = go2rtcFrame($cam, $width);
+            }
             if ($jpeg == '') {
                 header('HTTP/1.1 404 Not Found');
                 exit;

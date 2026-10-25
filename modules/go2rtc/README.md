@@ -32,7 +32,7 @@
 
 | Адрес | Что |
 |---|---|
-| `frame?src=…&exp=…&sig=…` (`&w=` — ширина) | кадр камеры по подписанной ссылке |
+| `frame?src=…&exp=…&sig=…` (`&w=` — ширина, `&last=1` — последний сохранённый кадр без ожидания камеры) | кадр камеры по подписанной ссылке |
 | `whep?src=…&exp=…&sig=…` | согласование WebRTC (POST, SDP) по подписанной ссылке; видео идёт с go2rtc напрямую |
 | `embed?src=…&exp=…&mode=…&sig=…` | страница просмотра одной камеры для iframe по подписанной ссылке |
 | `guest/<id>` | гостевая страница просмотра одной камеры без входа, до срока ссылки |
@@ -63,7 +63,7 @@ if (defined('GO2RTC_API') && go2rtcEnabled()) {
 | `go2rtcLinkCreate($cam, 'chat' / 'guest', $minutes, $members, $by, $by_title)`, `go2rtcLinkGet()`, `go2rtcLinkClose()`, `go2rtcLinks()`, `go2rtcLinkCameras($keys)`, `go2rtcGuestUrl($id)` | временный доступ участникам чата и гостевые ссылки |
 | `go2rtcShare($name)`, `go2rtcUnshare($name)`, `go2rtcShares()` | WebTorrent |
 
-Просмотрщик для страниц — `templates/go2rtc/js/viewer.js` (`go2rtcViewer(элемент, {frame, whep, direct, player, live, …})`, на весь экран — `go2rtcViewer.open({...})`): снимки без мигания и только на экране, «нет связи» после 20 с неудач, живое видео — плеер go2rtc напрямую, затем WebRTC через сервер.
+Просмотрщик для страниц — `templates/go2rtc/js/viewer.js` (`go2rtcViewer(элемент, {frame, whep, direct, player, live, …})`, на весь экран — `go2rtcViewer.open({...})`): первым — последний сохранённый кадр (`cms/cached/go2rtc/last_*.jpg`, обновляется не чаще раза в минуту), снимки без мигания и только на экране, «нет связи» после 20 с неудач, живое видео — плеер go2rtc напрямую, затем WebRTC через сервер.
 
 ## Файлы
 

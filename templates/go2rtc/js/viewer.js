@@ -21,7 +21,7 @@
  * Живое видео: сначала плеер go2rtc напрямую (браузер видит go2rtc, у его API нет пароля; по HTTPS к http-адресу
  * go2rtc браузер не пустит — тогда сразу дальше), не пошло за ожидание камеры + 4 с — WebRTC через сервер (WHEP),
  * не пошло и оно — остаются снимки. Снимок: следующий — когда загрузился прошлый (без мигания), «нет связи» —
- * после 20 с неудач подряд. Файл без новых конструкций языка — в старом браузере работают хотя бы снимки.
+ * после 20 с неудач подряд. Первым — последний сохранённый кадр (сразу, без ожидания камеры), следом — свежий. Файл без новых конструкций языка — в старом браузере работают хотя бы снимки.
  */
 (function () {
 	'use strict';
@@ -53,7 +53,7 @@
 		opts = opts || {};
 		var interval = opts.interval || 2000;
 		var wait = opts.wait || 6;
-		var stopped = false, loading = false, live = '', failSince = 0, state = '', visible = true;
+		var stopped = false, loading = false, live = '', failSince = 0, state = '', visible = true, first = true;
 		var timer = null, pc = null, rtc = null, observer = null, liveTimer = null;
 
 		box.classList.add('go2rtc-view');
@@ -81,23 +81,33 @@
 		function frame() {
 			if (stopped || loading || live || !opts.frame || !visible) return;
 			loading = true;
+			var last = first;   // первый запрос — сохранённый кадр, без ожидания камеры
+			first = false;
 			var next = new Image();
 			next.onload = function () {
 				loading = false;
 				if (stopped || live) return;
-				failSince = 0;
 				next.alt = '';
 				next.style.cssText = shot.style.cssText;
 				shot.parentNode.replaceChild(next, shot);
 				shot = next;
+				if (last) {
+					frame();     // и сразу свежий
+					return;
+				}
+				failSince = 0;
 				setState('snapshot');
 			};
 			next.onerror = function () {
 				loading = false;
+				if (last) {
+					frame();
+					return;
+				}
 				if (!failSince) failSince = Date.now();
 				if (Date.now() - failSince >= 20000) setState('offline');
 			};
-			next.src = add(opts.frame, (opts.width ? 'w=' + opts.width + '&' : '') + 't=' + Date.now());
+			next.src = add(opts.frame, (opts.width ? 'w=' + opts.width + '&' : '') + (last ? 'last=1&' : '') + 't=' + Date.now());
 		}
 
 		function showLive(how, el) {

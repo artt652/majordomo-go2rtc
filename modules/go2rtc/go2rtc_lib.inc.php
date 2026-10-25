@@ -323,7 +323,30 @@ function go2rtcFrame($name, $width = 0)
     $jpeg = go2rtcRequest('GET', 'api/frame.jpeg', $query, null, '', $code, $cfg['wait'], $type);
     $ok = ($code == 200 && strpos($type, 'image/jpeg') === 0 && $jpeg != '');
     go2rtcDown($name, !$ok);
+    if ($ok) {
+        // последний кадр — для мгновенного показа при открытии (go2rtcFrameLast); на диск не чаще раза в минуту
+        $file = go2rtcFrameLastFile($name, $width);
+        if (!is_file($file) || filemtime($file) < time() - 60) {
+            if (!is_dir(dirname($file))) {
+                @mkdir(dirname($file), 0777, true);
+            }
+            @file_put_contents($file, $jpeg);
+        }
+    }
     return $ok ? $jpeg : '';
+}
+
+// Последний полученный кадр камеры (сохраняет go2rtcFrame) — сразу, без обращения к камере: просмотрщик показывает его
+// первым, пока камера просыпается, вместо чёрного экрана. Нет — ''.
+function go2rtcFrameLast($name, $width = 0)
+{
+    $file = go2rtcFrameLastFile($name, $width);
+    return is_file($file) ? (string)@file_get_contents($file) : '';
+}
+
+function go2rtcFrameLastFile($name, $width = 0)
+{
+    return ROOT . 'cms/cached/go2rtc/last_' . md5($name) . '_' . (int)$width . '.jpg';
 }
 
 // Недоступная камера: снимки не получаются 20 с подряд (с первой неудачи, без удачных между ними) — следующие
