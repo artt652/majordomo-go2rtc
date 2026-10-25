@@ -7,7 +7,7 @@
 [#if DEVICE_CREATED="1"#]<div class="alert alert-success"><#LANG_GO2RTC_DEVICE_CREATED#> [#CAMERA_LINKED_OBJECT#]</div>[#endif DEVICE_CREATED#]
 <div class="row">
 <div class="col-md-4 col-md-push-8" style="margin-bottom:15px">
-	<div class="g2-camera-preview" id="g2_preview" data-off="<#LANG_GO2RTC_CAM_OFFLINE#>"></div>
+	<div class="g2-camera-preview" id="g2_preview" data-frame="[#CAMERA_FRAME#]" data-off="<#LANG_GO2RTC_CAM_OFFLINE#>"></div>
 	<p class="help-block"><#LANG_GO2RTC_STREAM#>: <code>[#CAMERA_NAME#]</code>[#if CAMERA_CHECKED!=""#] · [#if CAMERA_ONLINE="1"#]<#LANG_GO2RTC_ONLINE#>[#else CAMERA_ONLINE#]<#LANG_GO2RTC_OFFLINE#>[#endif CAMERA_ONLINE#] ([#CAMERA_CHECKED#])[#endif CAMERA_CHECKED#]</p>
 </div>
 <div class="col-md-8 col-md-pull-4">
@@ -86,5 +86,7 @@
 </style>
 <script src="<#ROOTHTML#>templates/go2rtc/js/viewer.js"></script>
 <script type="text/javascript">
-	go2rtcViewer(document.getElementById('g2_preview'), {frame: '[#CAMERA_FRAME#]', width: 640, interval: 3000, wait: [#WAIT#] || 6});
+	// адрес кадра — из атрибута: там &amp; браузер раскодирует, в тексте скрипта — нет
+	var g2Preview = document.getElementById('g2_preview');
+	go2rtcViewer(g2Preview, {frame: g2Preview.getAttribute('data-frame'), width: 640, interval: 3000, wait: [#WAIT#] || 6});
 </script>
