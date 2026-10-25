@@ -324,9 +324,9 @@ function go2rtcFrame($name, $width = 0)
     $ok = ($code == 200 && strpos($type, 'image/jpeg') === 0 && $jpeg != '');
     go2rtcDown($name, !$ok);
     if ($ok) {
-        // последний кадр — для мгновенного показа при открытии (go2rtcFrameLast); на диск не чаще раза в минуту
+        // последний кадр — для мгновенного показа при открытии (go2rtcFrameLast); на диск не чаще раза в 10 минут (SD-карты)
         $file = go2rtcFrameLastFile($name, $width);
-        if (!is_file($file) || filemtime($file) < time() - 60) {
+        if (!is_file($file) || filemtime($file) < time() - 600) {
             if (!is_dir(dirname($file))) {
                 @mkdir(dirname($file), 0777, true);
             }
