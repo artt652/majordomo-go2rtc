@@ -316,11 +316,11 @@ class go2rtc extends module
             . ($title != '' ? '<div class="go2rtc-embed-title">' . $h($title) . '</div>' : '') . '</div>'
             . '<script>(function(){var el=document.getElementById(' . json_encode($id) . '),L=' . json_encode($links, $flags) . ',t=' . json_encode($texts, $flags)
             . ',mode=' . json_encode($mode) . ',title=' . json_encode($title, $flags) . ',renew=' . json_encode(ROOTHTML . 'ajax/go2rtc.html?op=renew&cam=' . rawurlencode($cam), $flags) . ',v=null;'
-            . 'function start(){if(v)v.stop();var box=el.querySelector(".go2rtc-embed-box");box.innerHTML="";'
-            . 'v=go2rtcViewer(box,{frame:L.frame,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,live:mode=="live",width:mode=="live"?1280:640,interval:3000,lazy:true});}'
-            . 'start();if(mode!="live")el.addEventListener("click",function(){go2rtcViewer.open({title:title,frame:L.frame_hq,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,width:1280,texts:t});});'
-            // ссылки на 24 часа: каждые 6 часов — новые (с той же сессией и проверкой прав)
-            . 'setInterval(function(){fetch(renew,{credentials:"same-origin",cache:"no-store"}).then(function(r){return r.json();}).then(function(j){if(j&&j.frame){L=j;if(mode=="live"||!v)start();}}).catch(function(){});},6*3600*1000);'
+            . 'function start(){var box=el.querySelector(".go2rtc-embed-box"),p=go2rtcViewer.capture(box);if(v)v.stop();box.innerHTML="";'
+            . 'v=go2rtcViewer(box,{poster:p,frame:L.frame,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,live:mode=="live",width:mode=="live"?1280:640,interval:3000,lazy:true});}'
+            . 'start();if(mode!="live")el.addEventListener("click",function(){go2rtcViewer.open({title:title,poster:go2rtcViewer.capture(el),frame:L.frame_hq,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,width:1280,texts:t});});'
+            // ссылки на 24 часа: каждые 6 часов — новые (с той же сессией и проверкой прав); просмотр — заново с ними, без чёрного экрана
+            . 'setInterval(function(){fetch(renew,{credentials:"same-origin",cache:"no-store"}).then(function(r){return r.json();}).then(function(j){if(j&&j.frame){L=j;start();}}).catch(function(){});},6*3600*1000);'
             . '})();</script>';
         $out['EMBED'] = $html;
     }

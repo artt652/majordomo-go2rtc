@@ -14,7 +14,8 @@
  *       wait: 6,             // ожидание первого кадра камеры, с (настройка модуля)
  *       lazy: true,          // снимки — только пока элемент виден на экране
  *       controls: false,     // кнопки видео
- *       onstate: function (state, how) {}  // state: 'snapshot' | 'live' | 'offline'; how: 'direct' | 'whep'
+ *       onstate: function (state, how) {}, // state: 'snapshot' | 'live' | 'offline'; how: 'direct' | 'whep'
+ *       poster: go2rtcViewer.capture(oldBox)  // что показать до первого кадра (снимок прошлого просмотра), без чёрного экрана
  *   });
  *   v.stop();  // остановить снимки и видео
  *
@@ -49,6 +50,36 @@
 		return playerLoading;
 	}
 
+	// Копия того, что сейчас видно в элементе (видео или снимок), — холстом: показать в новом просмотре до первого кадра.
+	// Нечего копировать (пусто, кадр чужого сайта) — null
+	function capture(el) {
+		if (!el) return null;
+		var src = null, w = 0, h = 0;
+		var videos = el.querySelectorAll('video');
+		for (var i = 0; i < videos.length && !src; i++) {
+			var v = videos[i];
+			if (v.videoWidth && v.readyState >= 2 && v.offsetParent !== null) { src = v; w = v.videoWidth; h = v.videoHeight; }
+		}
+		if (!src) {
+			var imgs = el.querySelectorAll('img');
+			for (var j = 0; j < imgs.length && !src; j++) {
+				var im = imgs[j];
+				if (im.naturalWidth && im.style.display != 'none') { src = im; w = im.naturalWidth; h = im.naturalHeight; }
+			}
+		}
+		if (!src) return null;
+		try {
+			var c = document.createElement('canvas');
+			c.width = w;
+			c.height = h;
+			c.getContext('2d').drawImage(src, 0, 0, w, h);
+			c.toDataURL('image/jpeg', 0.1);   // проверка: холст не «испорчен» чужим кадром
+			return c;
+		} catch (e) {
+			return null;
+		}
+	}
+
 	window.go2rtcViewer = function (box, opts) {
 		opts = opts || {};
 		var interval = opts.interval || 2000;
@@ -57,7 +88,8 @@
 		var timer = null, pc = null, rtc = null, observer = null, liveTimer = null;
 
 		box.classList.add('go2rtc-view');
-		var shot = document.createElement('img');
+		// снимок; до первого кадра — poster (холст от capture), если дали
+		var shot = opts.poster || document.createElement('img');
 		shot.alt = '';
 		shot.style.cssText = 'width:100%;height:100%;object-fit:contain';
 		var video = document.createElement('video');
@@ -244,6 +276,8 @@
 			}
 		};
 	};
+
+	window.go2rtcViewer.capture = capture;
 
 	// Просмотр на весь экран (вставки в сцены): живое видео поверх страницы, закрыть — × или Esc.
 	// opts — как у go2rtcViewer, плюс title и texts {live, snapshot, offline, close}
