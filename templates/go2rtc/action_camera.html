@@ -9,6 +9,19 @@
 <div class="col-md-4 col-md-push-8" style="margin-bottom:15px">
 	<div class="g2-camera-preview" id="g2_preview" data-frame="[#CAMERA_FRAME#]" data-off="<#LANG_GO2RTC_CAM_OFFLINE#>"></div>
 	<p class="help-block"><#LANG_GO2RTC_STREAM#>: <code>[#CAMERA_NAME#]</code>[#if CAMERA_CHECKED!=""#] · [#if CAMERA_ONLINE="1"#]<#LANG_GO2RTC_ONLINE#>[#else CAMERA_ONLINE#]<#LANG_GO2RTC_OFFLINE#>[#endif CAMERA_ONLINE#] ([#CAMERA_CHECKED#])[#endif CAMERA_CHECKED#]</p>
+	<!-- код для сцены (элемент «HTML») или шаблона -->
+	<label><#LANG_GO2RTC_SCENE_CODE#></label>
+	<p class="help-block" style="margin-top:0"><#LANG_GO2RTC_SCENE_SNAPSHOT#></p>
+	<div class="input-group input-group-sm" style="margin-bottom:8px">
+		<input type="text" class="form-control" id="g2_code_snapshot" value="[#EMBED_SNAPSHOT#]" readonly onclick="this.select();">
+		<span class="input-group-btn"><button type="button" class="btn btn-default" onclick="g2CopyCode('g2_code_snapshot');"><#LANG_GO2RTC_COPY#></button></span>
+	</div>
+	<p class="help-block" style="margin-top:0"><#LANG_GO2RTC_SCENE_LIVE#></p>
+	<div class="input-group input-group-sm">
+		<input type="text" class="form-control" id="g2_code_live" value="[#EMBED_LIVE#]" readonly onclick="this.select();">
+		<span class="input-group-btn"><button type="button" class="btn btn-default" onclick="g2CopyCode('g2_code_live');"><#LANG_GO2RTC_COPY#></button></span>
+	</div>
+	<p class="help-block"><#LANG_GO2RTC_SCENE_CODE_HELP#></p>
 </div>
 <div class="col-md-8 col-md-pull-4">
 <form action="?" method="post" class="form-horizontal" name="frmCamera">
@@ -86,6 +99,12 @@
 </style>
 <script src="<#ROOTHTML#>templates/go2rtc/js/viewer.js"></script>
 <script type="text/javascript">
+	function g2CopyCode(id) {
+		var input = document.getElementById(id);
+		input.select();
+		try { document.execCommand('copy'); } catch (e) {}
+		if (navigator.clipboard) navigator.clipboard.writeText(input.value).catch(function () {});
+	}
 	// адрес кадра — из атрибута: там &amp; браузер раскодирует, в тексте скрипта — нет
 	var g2Preview = document.getElementById('g2_preview');
 	go2rtcViewer(g2Preview, {frame: g2Preview.getAttribute('data-frame'), width: 640, interval: 3000, wait: [#WAIT#] || 6});

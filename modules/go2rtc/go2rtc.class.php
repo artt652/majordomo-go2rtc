@@ -255,6 +255,13 @@ class go2rtc extends module
         $out['CAMERA_FRAME'] = $h(go2rtcSignedUrl('frame', $camera['NAME'], $exp));
         $out['WAIT'] = (int)go2rtcConfig()['wait'];
         $out['DIRECT'] = $h(go2rtcDirectBase());
+        // код вставки в сцену (подпись — название камеры, переименование подхватится само); скобки — сущностями, иначе шаблонизатор панели выполнит его прямо здесь
+        foreach (array('snapshot' => 'EMBED_SNAPSHOT', 'live' => 'EMBED_LIVE') as $mode => $key) {
+            // имя потока; с кавычками, «#», скобками — номер камеры (вставка понимает оба)
+            $cam_attr = preg_match('/["#\[\]]/', $camera['NAME']) ? (string)(int)$camera['ID'] : $camera['NAME'];
+            $code = '[#module name="go2rtc" cam="' . $cam_attr . '" mode="' . $mode . '" width="100%"#]';
+            $out[$key] = str_replace(array('[', ']'), array('&#91;', '&#93;'), $h($code));
+        }
     }
 
     // Вставка камеры в сцену, меню или шаблон: [#module name="go2rtc" cam="door"#]
