@@ -59,6 +59,10 @@ class go2rtc extends module
     function admin(&$out)
     {
         $this->getConfig();
+        // поле, добавленное после первой версии таблицы (установка модуля заново добавляет его сама)
+        if (!SQLSelectOne("SHOW COLUMNS FROM go2rtc_cameras LIKE 'AUDIO'")) {
+            $this->dbInstall('');
+        }
         $h = function ($text) {
             return htmlspecialchars((string)$text, ENT_QUOTES, 'UTF-8');
         };
@@ -160,7 +164,7 @@ class go2rtc extends module
                 $hq = go2rtcCameraHq($name);
                 $grid = array('ID' => (int)$row['ID'], 'NAME' => $h($name), 'TITLE' => $h($row['TITLE']), 'HIDDEN' => (int)$row['HIDDEN'],
                     'FRAME' => $h(go2rtcSignedUrl('frame', $name, $exp)), 'FRAME_HQ' => $h(go2rtcSignedUrl('frame', $hq, $exp)),
-                    'WHEP' => $h(go2rtcSignedUrl('whep', $hq, $exp)), 'WHEP_MAIN' => $h(go2rtcSignedUrl('whep', $name, $exp)), 'HQ' => $h($hq), 'LINKED' => $h($row['LINKED_OBJECT']),
+                    'WHEP' => $h(go2rtcSignedUrl('whep', $hq, $exp)), 'WHEP_MAIN' => $h(go2rtcSignedUrl('whep', $name, $exp)), 'AUDIO' => isset($row['AUDIO']) ? (int)$row['AUDIO'] : 1, 'HQ' => $h($hq), 'LINKED' => $h($row['LINKED_OBJECT']),
                     'WHO' => $h($who), 'RULE' => go2rtcRuleDefined($row['ID']) ? 1 : 0);
                 if (!(int)$row['HIDDEN']) {
                     $out['GRID'][] = $grid;
@@ -207,6 +211,7 @@ class go2rtc extends module
             $camera['TITLE'] = trim((string)gr('title')) != '' ? mb_substr(trim((string)gr('title')), 0, 255, 'UTF-8') : $camera['NAME'];
             $camera['PRIORITY'] = gr('priority', 'int');
             $camera['HIDDEN'] = gr('hidden', 'int') ? 1 : 0;
+            $camera['AUDIO'] = gr('audio', 'int') ? 1 : 0;
             $hq = trim((string)gr('hq_name'));
             $camera['HQ_NAME'] = ($hq != '' && $hq != $camera['NAME'] && go2rtcHas($hq)) ? $hq : '';
             foreach (array('LINKED_OBJECT', 'ONLINE_PROPERTY', 'VIEWERS_PROPERTY', 'SHOW_PROPERTY', 'STATE_METHOD') as $field) {
@@ -238,6 +243,7 @@ class go2rtc extends module
                 $out['DEVICE_CREATED'] = 1;
             }
         }
+        $out['CAMERA_AUDIO'] = isset($camera['AUDIO']) ? (int)$camera['AUDIO'] : 1;
         foreach (array('ID', 'NAME', 'TITLE', 'PRIORITY', 'HIDDEN', 'HQ_NAME', 'LINKED_OBJECT', 'ONLINE_PROPERTY', 'VIEWERS_PROPERTY', 'SHOW_PROPERTY', 'STATE_METHOD') as $field) {
             $out['CAMERA_' . $field] = $h($camera[$field]);
         }
@@ -307,7 +313,8 @@ class go2rtc extends module
         $title = ($this->caption != '') ? (string)$this->caption : go2rtcCameraTitle($cam);
         $links = $this->embedLinks($cam);
         $texts = array('live' => go2rtcLang('GO2RTC_CAM_LIVE'), 'snapshot' => go2rtcLang('GO2RTC_CAM_SNAPSHOT'),
-            'offline' => go2rtcLang('GO2RTC_CAM_OFFLINE'), 'close' => go2rtcLang('GO2RTC_CLOSE'));
+            'offline' => go2rtcLang('GO2RTC_CAM_OFFLINE'), 'close' => go2rtcLang('GO2RTC_CLOSE'),
+            'sound_on' => go2rtcLang('GO2RTC_SOUND_ON'), 'sound_off' => go2rtcLang('GO2RTC_SOUND_OFF'));
         $flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
         $html = '';
         if ($n == 1) {
@@ -324,8 +331,8 @@ class go2rtc extends module
             . '<script>(function(){var el=document.getElementById(' . json_encode($id) . '),L=' . json_encode($links, $flags) . ',t=' . json_encode($texts, $flags)
             . ',mode=' . json_encode($mode) . ',title=' . json_encode($title, $flags) . ',renew=' . json_encode(ROOTHTML . 'ajax/go2rtc.html?op=renew&cam=' . rawurlencode($cam), $flags) . ',v=null;'
             . 'function start(){var box=el.querySelector(".go2rtc-embed-box"),p=go2rtcViewer.capture(box);if(v)v.stop();box.innerHTML="";'
-            . 'v=go2rtcViewer(box,{poster:p,frame:L.frame,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,live:mode=="live",width:mode=="live"?1280:640,interval:3000,lazy:true});}'
-            . 'start();if(mode!="live")el.addEventListener("click",function(){go2rtcViewer.open({title:title,poster:go2rtcViewer.capture(el),frame:L.frame_hq,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,width:1280,texts:t});});'
+            . 'v=go2rtcViewer(box,{poster:p,audio:L.audio,frame:L.frame,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,live:mode=="live",width:mode=="live"?1280:640,interval:3000,lazy:true});}'
+            . 'start();if(mode!="live")el.addEventListener("click",function(){go2rtcViewer.open({title:title,poster:go2rtcViewer.capture(el),audio:L.audio,frame:L.frame_hq,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,width:1280,texts:t});});'
             // ссылки на 24 часа: каждые 6 часов — новые (с той же сессией и проверкой прав); просмотр — заново с ними, без чёрного экрана
             . 'setInterval(function(){fetch(renew,{credentials:"same-origin",cache:"no-store"}).then(function(r){return r.json();}).then(function(j){if(j&&j.frame){L=j;start();}}).catch(function(){});},6*3600*1000);'
             . '})();</script>';
@@ -340,7 +347,7 @@ class go2rtc extends module
         $cfg = go2rtcConfig();
         return array('ok' => 1, 'frame' => go2rtcSignedUrl('frame', $cam, $exp), 'frame_hq' => go2rtcSignedUrl('frame', $hq, $exp),
             'whep' => go2rtcSignedUrl('whep', $hq, $exp), 'hq' => $hq, 'direct' => go2rtcDirectBase(),
-            'player' => ROOTHTML . 'templates/go2rtc/js/video-rtc.js', 'wait' => (int)$cfg['wait'], 'exp' => $exp);
+            'player' => ROOTHTML . 'templates/go2rtc/js/video-rtc.js', 'wait' => (int)$cfg['wait'], 'exp' => $exp, 'audio' => go2rtcCameraAudio($cam));
     }
 
     // Входы api.php/module/go2rtc/… — см. начало файла
@@ -442,7 +449,7 @@ class go2rtc extends module
             . '<main id="view" data-off="' . $h($texts['offline']) . '"></main>'
             . '<script>(function(){var base=' . json_encode($base, $flags) . ',id=' . json_encode($id, $flags) . ',t=' . json_encode($texts, $flags)
             . ',expires=' . (int)$link['expires'] . ',state=document.getElementById("state");'
-            . 'var v=go2rtcViewer(document.getElementById("view"),{frame:base+"frame/"+id,whep:base+"whep/"+id,live:true,width:1280,controls:true,wait:' . (int)$cfg['wait'] . ','
+            . 'var v=go2rtcViewer(document.getElementById("view"),{frame:base+"frame/"+id,whep:base+"whep/"+id,live:true,width:1280,controls:true,audio:' . go2rtcCameraAudio($cam) . ',wait:' . (int)$cfg['wait'] . ','
             . 'onstate:function(s){state.textContent=s=="live"?t.live:(s=="offline"?t.offline:t.snapshot);}});state.textContent=t.snapshot;'
             . 'function gone(){v.stop();document.body.innerHTML="";var d=document.createElement("div");d.className="gone";d.textContent=t.gone;document.body.appendChild(d);}'
             . 'setInterval(function(){if(Date.now()>expires*1000)gone();},5000);'
@@ -469,7 +476,7 @@ class go2rtc extends module
         $opts = array('frame' => go2rtcSignedUrl('frame', $mode == 'live' ? $hq : $cam, $exp), 'whep' => go2rtcSignedUrl('whep', $hq, $exp),
             'direct' => go2rtcDirectBase() != '' ? array('base' => go2rtcDirectBase(), 'src' => $hq) : null,
             'player' => ROOTHTML . 'templates/go2rtc/js/video-rtc.js', 'wait' => (int)$cfg['wait'], 'live' => $mode == 'live',
-            'width' => 1280, 'interval' => 3000);
+            'width' => 1280, 'interval' => 3000, 'audio' => go2rtcCameraAudio($cam), 'controls' => $mode == 'live');
         echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<meta name="referrer" content="no-referrer"><title>' . htmlspecialchars(go2rtcCameraTitle($cam), ENT_QUOTES, 'UTF-8') . '</title>'
             . '<style>html,body{margin:0;height:100%;background:#000}#v{width:100%;height:100%}.go2rtc-off img{opacity:.35}</style>'
@@ -538,6 +545,7 @@ class go2rtc extends module
  go2rtc_cameras: TITLE varchar(255) NOT NULL DEFAULT ''
  go2rtc_cameras: PRIORITY int(10) NOT NULL DEFAULT '0'
  go2rtc_cameras: HIDDEN int(3) NOT NULL DEFAULT '0'
+ go2rtc_cameras: AUDIO int(3) NOT NULL DEFAULT '1'
  go2rtc_cameras: MISSING int(3) NOT NULL DEFAULT '0'
  go2rtc_cameras: HQ_NAME varchar(100) NOT NULL DEFAULT ''
  go2rtc_cameras: LINKED_OBJECT varchar(100) NOT NULL DEFAULT ''

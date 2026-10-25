@@ -875,6 +875,14 @@ function go2rtcCameraHq($name)
     return (!empty($row['HQ_NAME']) && go2rtcHas($row['HQ_NAME'])) ? $row['HQ_NAME'] : (string)$name;
 }
 
+// Есть ли у камеры звук (настройка камеры; по умолчанию — есть): нет — просмотр не запрашивает звук у go2rtc
+// и не показывает кнопку звука
+function go2rtcCameraAudio($name)
+{
+    $row = go2rtcCameraByName($name);
+    return !isset($row['AUDIO']) || (int)$row['AUDIO'] ? 1 : 0;
+}
+
 // Класс объекта MajorDoMo и всех его родителей (для «это камера SCameras?»)
 function go2rtcObjectClasses($object)
 {

@@ -51,9 +51,10 @@
 [#if ENABLED="1"#][#if HAS_CAMERAS!="1"#]<p class="help-block"><#LANG_GO2RTC_NO_CAMERAS#></p>[#endif HAS_CAMERAS#][#endif ENABLED#]
 <div class="g2-grid">
 [#begin GRID#]
-	<div class="g2-tile" data-title="[#TITLE#]" data-name="[#NAME#]" data-hq="[#HQ#]" data-frame="[#FRAME#]" data-frame-hq="[#FRAME_HQ#]" data-whep="[#WHEP#]" data-whep-main="[#WHEP_MAIN#]">
+	<div class="g2-tile" data-title="[#TITLE#]" data-name="[#NAME#]" data-hq="[#HQ#]" data-frame="[#FRAME#]" data-frame-hq="[#FRAME_HQ#]" data-whep="[#WHEP#]" data-whep-main="[#WHEP_MAIN#]" data-audio="[#AUDIO#]">
 		<div class="g2-box" data-off="<#LANG_GO2RTC_CAM_OFFLINE#>"></div>
 		<div class="g2-cap"><b>[#TITLE#]</b><small title="[#WHO#]">[#if LINKED!=""#]🔗 [#LINKED#] · [#endif LINKED#][#WHO#]</small>
+			[#if AUDIO="1"#]<button type="button" class="g2-gear g2-sound" title="<#LANG_GO2RTC_SOUND_ON#>">🔇</button>[#endif AUDIO#]
 			<button type="button" class="g2-gear g2-full" title="<#LANG_GO2RTC_FULLSCREEN#>">⛶</button>
 			<button type="button" class="g2-gear g2-share-open" title="<#LANG_GO2RTC_SHARE#>">⤴</button>
 			<a href="?camera_id=[#ID#]" class="g2-gear" title="<#LANG_GO2RTC_CAMERA_SETTINGS#>" onclick="event.stopPropagation();">⚙</a></div>
@@ -212,6 +213,7 @@
 	</form>
 <div class="g2-live" id="g2_live">
 	<header><b id="g2_live_name"></b><span id="g2_live_state"></span>
+		<button type="button" id="g2_live_sound" style="font-size:20px"></button>
 		<button type="button" id="g2_live_close" aria-label="<#LANG_GO2RTC_CLOSE#>">×</button></header>
 	<div id="g2_live_box" data-off="<#LANG_GO2RTC_CAM_OFFLINE#>"></div>
 </div>
@@ -249,14 +251,22 @@
 		// сетка: снимки, пока вкладка открыта и страница видна; нажатие на плитку — живое видео в ней (ещё раз — снова снимки)
 		var wait = [#WAIT#] || 6, tiles = [], gridOn = false, playing = [];
 		var tileList = document.querySelectorAll('.g2-tile');
-		function tileView(i, isLive) {
-			var tile = tileList[i], box = tile.querySelector('.g2-box');
+		var soundOn = '<#LANG_GO2RTC_SOUND_ON#>', soundOff = '<#LANG_GO2RTC_SOUND_OFF#>';
+		function soundIcon(btn, m) {
+			if (!btn) return;
+			btn.textContent = m ? '🔇' : '🔊';
+			btn.title = m ? soundOn : soundOff;
+		}
+		function tileView(i, isLive, withSound) {
+			var tile = tileList[i], box = tile.querySelector('.g2-box'), sound = tile.querySelector('.g2-sound');
+			soundIcon(sound, true);
 			var poster = go2rtcViewer.capture(box);   // прошлый кадр — до первого нового, без чёрного экрана
 			if (tiles[i]) tiles[i].stop();
 			box.innerHTML = '';
 			box.className = 'g2-box';
 			tiles[i] = isLive
 				? go2rtcViewer(box, {poster: poster, frame: tile.getAttribute('data-frame'), whep: tile.getAttribute('data-whep-main'), live: true,
+					audio: tile.getAttribute('data-audio') == '1', muted: !withSound, onmute: function (m) { soundIcon(sound, m); },
 					direct: direct ? {base: direct, src: tile.getAttribute('data-name')} : null, player: player,
 					width: 640, interval: 3000, wait: wait})
 				: go2rtcViewer(box, {poster: poster, frame: tile.getAttribute('data-frame'), width: 480, interval: 3000, wait: wait, lazy: true});
@@ -277,6 +287,7 @@
 		document.addEventListener('visibilitychange', function () {
 			grid(document.getElementById('tab_cameras').classList.contains('active'));
 		});
+		var liveSound = document.getElementById('g2_live_sound');
 		var live = document.getElementById('g2_live'), liveView = null, share = document.getElementById('g2_share');
 		var texts = {live: '<#LANG_GO2RTC_CAM_LIVE#>', snapshot: '<#LANG_GO2RTC_CAM_SNAPSHOT#>', offline: '<#LANG_GO2RTC_CAM_OFFLINE#>',
 			direct: '<#LANG_GO2RTC_HOW_DIRECT#>', whep: '<#LANG_GO2RTC_HOW_WHEP#>'};
@@ -296,8 +307,11 @@
 			var state = document.getElementById('g2_live_state');
 			state.textContent = texts.snapshot;
 			live.classList.add('on');
+			liveSound.style.display = tile.getAttribute('data-audio') == '1' ? '' : 'none';
+			soundIcon(liveSound, true);
 			liveView = go2rtcViewer(box, {poster: poster, frame: tile.getAttribute('data-frame-hq'), whep: tile.getAttribute('data-whep'), live: true,
 				direct: direct ? {base: direct, src: tile.getAttribute('data-hq')} : null, player: player,
+				audio: tile.getAttribute('data-audio') == '1', onmute: function (m) { soundIcon(liveSound, m); },
 				width: 1280, controls: true, wait: wait, onstate: function (s, how) {
 					state.textContent = (texts[s] || '') + (s == 'live' && how ? ' · ' + (how == 'direct' ? texts.direct : texts.whep) : '');
 				}});
@@ -307,6 +321,19 @@
 				if (!gridOn) return;
 				playing[i] = !playing[i];
 				tileView(i, playing[i]);
+			});
+			// звук: плитка играет — включить/выключить; не играет — включить видео сразу со звуком (нажатие разрешает браузеру)
+			var sound = tile.querySelector('.g2-sound');
+			if (sound) sound.addEventListener('click', function (e) {
+				e.stopPropagation();
+				if (!gridOn) return;
+				if (playing[i] && tiles[i]) {
+					tiles[i].mute(!tiles[i].mute());
+				} else {
+					playing[i] = true;
+					tileView(i, true, true);
+					soundIcon(sound, false);
+				}
 			});
 			tile.querySelector('.g2-full').addEventListener('click', function (e) {
 				e.stopPropagation();
@@ -321,6 +348,7 @@
 			});
 		});
 		document.getElementById('g2_live_close').addEventListener('click', closeLive);
+		liveSound.addEventListener('click', function () { if (liveView) liveView.mute(!liveView.mute()); });
 		document.addEventListener('keydown', function (e) { if (e.key == 'Escape' && liveView) closeLive(); });
 
 		var start = '[#TAB#]' || (location.hash || '').substr(1);

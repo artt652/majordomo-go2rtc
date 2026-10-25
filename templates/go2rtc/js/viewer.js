@@ -14,10 +14,14 @@
  *       wait: 6,             // ожидание первого кадра камеры, с (настройка модуля)
  *       lazy: true,          // снимки — только пока элемент виден на экране
  *       controls: false,     // кнопки видео
+ *       audio: true,         // запрашивать звук (false — только видео); начинается без звука — v.mute(false) включает
+ *       muted: true,         // false — сразу со звуком (только после нажатия пользователя — иначе браузер не запустит)
+ *       onmute: function (muted) {},       // звук выключили или включили (кнопкой, плеером или браузер сам)
  *       onstate: function (state, how) {}, // state: 'snapshot' | 'live' | 'offline'; how: 'direct' | 'whep'
  *       poster: go2rtcViewer.capture(oldBox)  // что показать до первого кадра (снимок прошлого просмотра), без чёрного экрана
  *   });
  *   v.stop();  // остановить снимки и видео
+ *   v.mute(false); v.mute();  // включить звук; узнать, выключен ли
  *
  * Живое видео: сначала плеер go2rtc напрямую (браузер видит go2rtc, у его API нет пароля; по HTTPS к http-адресу
  * go2rtc браузер не пустит — тогда сразу дальше), не пошло за ожидание камеры + 4 с — WebRTC через сервер (WHEP),
@@ -86,6 +90,8 @@
 		var wait = opts.wait || 6;
 		var stopped = false, loading = false, live = '', failSince = 0, state = '', visible = true, first = true;
 		var timer = null, pc = null, rtc = null, observer = null, liveTimer = null;
+		var audio = opts.audio !== false && opts.audio !== 0;
+		var muted = !audio || opts.muted !== false;
 
 		box.classList.add('go2rtc-view');
 		// снимок; до первого кадра — poster (холст от capture), если дали
@@ -94,13 +100,24 @@
 		shot.style.cssText = 'width:100%;height:100%;object-fit:contain';
 		var video = document.createElement('video');
 		video.autoplay = true;
-		video.muted = true;
+		video.muted = muted;
 		video.playsInline = true;
 		video.setAttribute('playsinline', '');
 		video.controls = !!opts.controls;
 		video.style.cssText = 'width:100%;height:100%;object-fit:contain;display:none';
 		box.appendChild(shot);
 		box.appendChild(video);
+		// звук меняют и кнопки плеера, и сам плеер go2rtc (браузер не дал играть со звуком — выключает): следим за элементом
+		function watchMute(el) {
+			el.addEventListener('volumechange', function () {
+				if (el.style.display == 'none' && el !== (rtc && rtc.video)) return;
+				if (el.muted != muted) {
+					muted = el.muted;
+					if (opts.onmute) opts.onmute(muted);
+				}
+			});
+		}
+		watchMute(video);
 
 		function setState(s, how) {
 			if (s == state) return;
@@ -162,6 +179,7 @@
 				if (stopped || live) return;
 				rtc = document.createElement('go2rtc-video');
 				rtc.mode = 'webrtc,mse,hls,mjpeg';
+				rtc.media = audio ? 'video,audio' : 'video';
 				rtc.background = true;   // видимость решает сама страница
 				rtc.pcConfig = {bundlePolicy: 'max-bundle', iceServers: [], sdpSemantics: 'unified-plan'};
 				rtc.style.display = 'none';
@@ -169,7 +187,8 @@
 				rtc.style.height = '100%';
 				box.appendChild(rtc);    // создаёт свой <video>
 				if (rtc.video) {
-					rtc.video.muted = true;
+					rtc.video.muted = muted;
+					watchMute(rtc.video);
 					rtc.video.controls = !!opts.controls;
 					rtc.video.style.objectFit = 'contain';
 					rtc.video.addEventListener('playing', function () { if (!live) showLive('direct', rtc); });
@@ -206,7 +225,7 @@
 			if (stopped || live || !opts.whep || !window.RTCPeerConnection || pc) return;
 			pc = new RTCPeerConnection({iceServers: []});
 			pc.addTransceiver('video', {direction: 'recvonly'});
-			pc.addTransceiver('audio', {direction: 'recvonly'});
+			if (audio) pc.addTransceiver('audio', {direction: 'recvonly'});
 			pc.ontrack = function (e) {
 				if (!video.srcObject) video.srcObject = e.streams[0] || new MediaStream([e.track]);
 			};
@@ -268,6 +287,19 @@
 		return {
 			live: startLive,
 			snapshots: function () { stopLive(); frame(); },
+			// звук: mute(false) — включить (вызывать из нажатия пользователя), mute(true) — выключить, mute() — выключен ли
+			mute: function (m) {
+				if (m === undefined) return muted;
+				var was = muted;
+				muted = !audio || !!m;
+				video.muted = muted;
+				if (rtc && rtc.video) rtc.video.muted = muted;
+				if (!muted) {
+					try { var pr = (rtc && rtc.video && live == 'direct' ? rtc.video : video).play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {}
+				}
+				if (was != muted && opts.onmute) opts.onmute(muted);
+				return muted;
+			},
 			stop: function () {
 				stopped = true;
 				clearInterval(timer);
@@ -280,7 +312,7 @@
 	window.go2rtcViewer.capture = capture;
 
 	// Просмотр на весь экран (вставки в сцены): живое видео поверх страницы, закрыть — × или Esc.
-	// opts — как у go2rtcViewer, плюс title и texts {live, snapshot, offline, close}
+	// opts — как у go2rtcViewer, плюс title и texts {live, snapshot, offline, close, sound_on, sound_off}; кнопка звука — если audio
 	window.go2rtcViewer.open = function (opts) {
 		var texts = opts.texts || {};
 		var layer = document.createElement('div');
@@ -300,6 +332,13 @@
 		close.style.cssText = 'background:none;border:0;color:#eee;font-size:28px;line-height:1;cursor:pointer';
 		head.appendChild(title);
 		head.appendChild(state);
+		var sound = null;
+		if (opts.audio !== false && opts.audio !== 0) {
+			sound = document.createElement('button');
+			sound.type = 'button';
+			sound.style.cssText = close.style.cssText + ';font-size:20px';
+			head.appendChild(sound);
+		}
 		head.appendChild(close);
 		var box = document.createElement('div');
 		box.style.cssText = 'flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative';
@@ -311,7 +350,18 @@
 		o.live = true;
 		o.controls = true;
 		o.onstate = function (s) { state.textContent = texts[s] || ''; };
+		o.onmute = function () { if (showSound) showSound(); };
+		var showSound = null;
 		var v = window.go2rtcViewer(box, o);
+		if (sound) {
+			showSound = function () {
+				var m = v.mute();
+				sound.textContent = m ? '\uD83D\uDD07' : '\uD83D\uDD0A';
+				sound.title = m ? (texts.sound_on || '') : (texts.sound_off || '');
+			};
+			sound.addEventListener('click', function () { v.mute(!v.mute()); });
+			showSound();
+		}
 		var done = function () {
 			v.stop();
 			document.removeEventListener('keydown', key);
