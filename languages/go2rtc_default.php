@@ -35,6 +35,7 @@ $dictionary = array(
 	'GO2RTC_DEVICE_URL_HELP'       => 'How terminals reach go2rtc in the home network. Empty — the server address with the API port (shown in the field).',
 	'GO2RTC_DIRECT_OFF'            => 'Browser viewing goes via the server (WebRTC): the go2rtc API has a password, browsers do not watch directly.',
 	'GO2RTC_DIRECT_ON'             => 'Browser viewing: the go2rtc API has no password — browsers on the home network watch directly (WebRTC, MSE, HLS), otherwise via the server. For go2rtc to accept a browser from the MajorDoMo page, go2rtc.yaml needs api: origin: "*".',
+	'GO2RTC_FULLSCREEN'            => 'Fullscreen',
 	'GO2RTC_HELP'                  => 'MajorDoMo has no cameras of its own: streams are set up in go2rtc, and the Messages page and terminals take them from there by name. Camera addresses and passwords stay in go2rtc.',
 	'GO2RTC_HIDDEN'                => 'Hidden',
 	'GO2RTC_HIDE'                  => 'Hide from the camera list',

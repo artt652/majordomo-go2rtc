@@ -160,7 +160,7 @@ class go2rtc extends module
                 $hq = go2rtcCameraHq($name);
                 $grid = array('ID' => (int)$row['ID'], 'NAME' => $h($name), 'TITLE' => $h($row['TITLE']), 'HIDDEN' => (int)$row['HIDDEN'],
                     'FRAME' => $h(go2rtcSignedUrl('frame', $name, $exp)), 'FRAME_HQ' => $h(go2rtcSignedUrl('frame', $hq, $exp)),
-                    'WHEP' => $h(go2rtcSignedUrl('whep', $hq, $exp)), 'HQ' => $h($hq), 'LINKED' => $h($row['LINKED_OBJECT']),
+                    'WHEP' => $h(go2rtcSignedUrl('whep', $hq, $exp)), 'WHEP_MAIN' => $h(go2rtcSignedUrl('whep', $name, $exp)), 'HQ' => $h($hq), 'LINKED' => $h($row['LINKED_OBJECT']),
                     'WHO' => $h($who), 'RULE' => go2rtcRuleDefined($row['ID']) ? 1 : 0);
                 if (!(int)$row['HIDDEN']) {
                     $out['GRID'][] = $grid;
