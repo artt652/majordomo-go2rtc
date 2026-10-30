@@ -86,6 +86,11 @@
 			<#LANG_GO2RTC_LOCAL_STATE#>: [#if LOCAL_RUNNING!=""#]<span class="text-success"><#LANG_GO2RTC_LOCAL_RUNNING#></span>[#if LOCAL_PID!="0"#] (PID [#LOCAL_PID#])[#endif LOCAL_PID#][#else LOCAL_RUNNING#]<span class="text-danger"><#LANG_GO2RTC_LOCAL_STOPPED#></span>[#endif LOCAL_RUNNING#][#if LOCAL_ERROR!=""#] · <span class="text-danger">[#LOCAL_ERROR#]</span>[#endif LOCAL_ERROR#]<br>
 			ffmpeg: [#if LOCAL_FFMPEG_VERSION!=""#][#LOCAL_FFMPEG_VERSION#] (<code>[#LOCAL_FFMPEG#]</code>)[#else LOCAL_FFMPEG_VERSION#]<span class="text-warning"><#LANG_GO2RTC_LOCAL_NO_FFMPEG#></span>[#endif LOCAL_FFMPEG_VERSION#]
 		</p>
+		[#if LOCAL_OPEN_FILE="1"#]<div class="alert alert-danger"><#LANG_GO2RTC_LOCAL_OPEN_FILE#></div>[#endif LOCAL_OPEN_FILE#]
+		[#if LOCAL_WEB_UI!=""#]<p><#LANG_GO2RTC_LOCAL_WEB_UI#>: <a href="[#LOCAL_WEB_UI#]" target="_blank" rel="noopener">[#LOCAL_WEB_UI#]</a>[#if LOCAL_LOCKED="1"#] · <#LANG_GO2RTC_LOGIN#> <code>[#GO2RTC_API_LOCAL_USER#]</code>, <#LANG_GO2RTC_PASSWORD#> <code>[#GO2RTC_API_LOCAL_PASSWORD#]</code>[#endif LOCAL_LOCKED#]</p>[#endif LOCAL_WEB_UI#]
+		[#if LOCAL_FILE!=""#]<p><#LANG_GO2RTC_LOCAL_FILE#>: <code>[#LOCAL_FILE#]</code> ([#LOCAL_FILE_SIZE#] B)[#if LOCAL_FILE_STREAMS!=""#]<br><#LANG_GO2RTC_LOCAL_FILE_STREAMS#>: [#LOCAL_FILE_STREAMS#][#endif LOCAL_FILE_STREAMS#]</p>[#endif LOCAL_FILE#]
+		[#if LOCAL_IMPORTED="1"#]<div class="alert alert-success"><#LANG_GO2RTC_LOCAL_IMPORTED#></div>[#endif LOCAL_IMPORTED#]
+		[#if LOCAL_IMPORT_ERROR!=""#]<div class="alert alert-danger">[#LOCAL_IMPORT_ERROR#]</div>[#endif LOCAL_IMPORT_ERROR#]
 		[#if LOCAL_CYCLE!="1"#]<div class="alert alert-warning"><#LANG_GO2RTC_LOCAL_NO_CYCLE#></div>[#endif LOCAL_CYCLE#]
 		[#if LOCAL_ACTION!=""#]<div class="alert alert-info"><#LANG_GO2RTC_LOCAL_ACTION_SENT#></div>[#endif LOCAL_ACTION#]
 		[#if LOCAL_LOG!=""#]<pre style="max-height:220px;overflow:auto;white-space:pre-wrap">[#LOCAL_LOG#]</pre>[#endif LOCAL_LOG#]
@@ -98,6 +103,16 @@
 			[#endif LOCAL_INSTALLED#]
 			<input type="hidden" name="tab" value="tab_settings">
 		</form>
+		<details style="margin-top:10px"[#if LOCAL_IMPORT_ERROR!=""#] open[#endif#]><summary><#LANG_GO2RTC_LOCAL_IMPORT#></summary>
+			<p class="help-block"><#LANG_GO2RTC_LOCAL_IMPORT_HELP#></p>
+			<form action="?" method="post" enctype="multipart/form-data">
+				<div class="form-group"><input type="file" name="import_file" accept=".yaml,.yml,.ini,.txt"></div>
+				<div class="form-group"><input type="text" name="import_path" class="form-control" placeholder="<#LANG_GO2RTC_LOCAL_IMPORT_PATH#>"></div>
+				<button type="submit" name="local_import" value="file" class="btn btn-default"><#LANG_GO2RTC_LOCAL_IMPORT_DO#></button>
+				[#if LOCAL_HAS_EXTERNAL="1"#]<button type="submit" name="local_import" value="external" class="btn btn-default"><#LANG_GO2RTC_LOCAL_IMPORT_EXTERNAL#></button>[#endif LOCAL_HAS_EXTERNAL#]
+				<input type="hidden" name="tab" value="tab_settings">
+			</form>
+		</details>
 		[#if LOCAL_LOG_TAIL!=""#]<details style="margin-top:10px"><summary><#LANG_GO2RTC_LOCAL_LOG#></summary><pre style="max-height:300px;overflow:auto;white-space:pre-wrap;font-size:12px">[#LOCAL_LOG_TAIL#]</pre></details>[#endif LOCAL_LOG_TAIL#]
 	</div>
 </div>
@@ -123,6 +138,21 @@
 		<p class="help-block"><#LANG_GO2RTC_LOCAL_PORTS_HELP#></p>
 		<div class="checkbox"><label><input type="checkbox" name="go2rtc_api_lan" value="1"[#if GO2RTC_API_LAN="1"#] checked[#endif#]> <#LANG_GO2RTC_LOCAL_API_LAN#></label></div>
 		<p class="help-block"><#LANG_GO2RTC_LOCAL_API_LAN_HELP#></p>
+		<div class="checkbox"><label><input type="checkbox" name="go2rtc_api_auth" value="1" id="g2_api_auth"[#if GO2RTC_API_AUTH="1"#] checked[#endif#]> <#LANG_GO2RTC_LOCAL_API_AUTH#></label></div>
+		<div class="row g2-pair">
+			<div class="col-sm-6"><input type="text" name="go2rtc_api_local_user" class="form-control" value="[#GO2RTC_API_LOCAL_USER#]" autocomplete="off" placeholder="admin"></div>
+			<div class="col-sm-6"><input type="text" name="go2rtc_api_local_password" class="form-control" value="[#GO2RTC_API_LOCAL_PASSWORD#]" autocomplete="off" placeholder="<#LANG_GO2RTC_LOCAL_API_PASSWORD_AUTO#>"></div>
+		</div>
+		<p class="help-block"><#LANG_GO2RTC_LOCAL_API_AUTH_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_LOCAL_FILE#>:</label>
+	<div class="col-sm-8 col-md-6">
+		[#if LOCAL_FILE_PATH_BAD="1"#]<div class="alert alert-danger"><#LANG_GO2RTC_LOCAL_FILE_PATH_BAD#></div>[#endif LOCAL_FILE_PATH_BAD#]
+		<div class="checkbox"><label><input type="checkbox" name="go2rtc_file" value="1" id="g2_file"[#if GO2RTC_FILE="1"#] checked[#endif#]> <#LANG_GO2RTC_LOCAL_FILE_ON#></label></div>
+		<input type="text" name="go2rtc_file_path" class="form-control" value="[#GO2RTC_FILE_PATH#]" placeholder="[#GO2RTC_FILE_DEFAULT#]">
+		<p class="help-block"><#LANG_GO2RTC_LOCAL_FILE_HELP#></p>
 	</div>
 </div>
 <div class="form-group">
@@ -467,6 +497,9 @@
 		}
 		Array.prototype.forEach.call(document.querySelectorAll('.g2-mode'), function (r) { r.addEventListener('change', modeFields); });
 		modeFields();
+		// файл данных включили — API из сети сразу с паролем (иначе /api/config открыт сети)
+		var g2file = document.getElementById('g2_file'), g2auth = document.getElementById('g2_api_auth');
+		if (g2file && g2auth) g2file.addEventListener('change', function () { if (g2file.checked) g2auth.checked = true; });
 
 		var start = '[#TAB#]' || (location.hash || '').substr(1);
 		show(start && document.getElementById(start) ? start : 'tab_cameras');

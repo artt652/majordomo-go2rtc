@@ -8,7 +8,13 @@
  *   GO2RTC_API_PORT (1984), GO2RTC_RTSP_PORT (8554, общая с внешним режимом), GO2RTC_WEBRTC_PORT (8555);
  *   GO2RTC_API_LAN — '1': API слушает сеть (прямой просмотр в браузере, ссылки HTTP для устройств), иначе
  *     только 127.0.0.1;
- *   GO2RTC_FFMPEG — путь к ffmpeg (пусто — ffmpeg из PATH).
+ *   GO2RTC_FFMPEG — путь к ffmpeg (пусто — ffmpeg из PATH);
+ *   GO2RTC_FILE — '1': данные go2rtc в файле (сопряжения HomeKit, облачные входы, потоки из веб-интерфейса go2rtc,
+ *     preload) — файл идёт первым конфигом, строка модуля вторым (go2rtc объединяет, модуль побеждает);
+ *     GO2RTC_FILE_PATH — свой путь (пусто — cms/go2rtc/go2rtc.ini: расширение .ini закрыто ядром от доступа по ссылке);
+ *   GO2RTC_API_AUTH — '1' (по умолчанию — когда включён файл): API из сети — с логином и паролем (GO2RTC_API_LOCAL_USER,
+ *     GO2RTC_API_LOCAL_PASSWORD — создаются сами); с самой машины модуль ходит без пароля (local_auth: false).
+ *     Без пароля и с файлом — /api/config открыт сети: прочитать файл и записать в него exec: может любой.
  *
  * Файлов конфига go2rtc нет: конфиг передаётся строкой (-config '{…}'), поэтому по прямой ссылке утекать
  * нечему, а /api/config отвечает 410. Камеры с обычными источниками (rtsp, http, onvif, ffmpeg без пробелов)
@@ -67,7 +73,40 @@ function go2rtcLocalSettings()
         'ffmpeg' => $get('GO2RTC_FFMPEG'),
         'rtsp_user' => $get('GO2RTC_RTSP_USER'),
         'rtsp_password' => $get('GO2RTC_RTSP_PASSWORD'),
+        'file' => $get('GO2RTC_FILE') == '1',
+        'file_path' => $get('GO2RTC_FILE_PATH', go2rtcLocalDir() . '/go2rtc.ini'),
+        'api_auth' => $get('GO2RTC_API_AUTH', $get('GO2RTC_FILE') == '1' ? '1' : '0') == '1',
+        'api_user' => $get('GO2RTC_API_LOCAL_USER', 'admin'),
+        'api_password' => $get('GO2RTC_API_LOCAL_PASSWORD'),
     );
+}
+
+// Пароль API встроенного go2rtc для доступа из сети: создать один раз
+function go2rtcLocalApiPassword()
+{
+    $config = go2rtcModuleConfig();
+    if (empty($config['GO2RTC_API_LOCAL_PASSWORD'])) {
+        $config['GO2RTC_API_LOCAL_PASSWORD'] = substr(md5(uniqid('', true) . mt_rand()), 0, 16);
+        if (empty($config['GO2RTC_API_LOCAL_USER'])) {
+            $config['GO2RTC_API_LOCAL_USER'] = 'admin';
+        }
+        go2rtcModuleConfigSave($config);
+    }
+    return $config['GO2RTC_API_LOCAL_PASSWORD'];
+}
+
+// API из сети с паролем (сопряжения и редактор go2rtc — по логину; прямой просмотр в браузере тогда недоступен)
+function go2rtcLocalApiLocked()
+{
+    $s = go2rtcLocalSettings();
+    return $s['api_lan'] && $s['api_auth'];
+}
+
+// Опасное сочетание: файл данных + API в сети без пароля (/api/config открыт сети)
+function go2rtcLocalApiOpenFile()
+{
+    $s = go2rtcLocalSettings();
+    return $s['file'] && $s['api_lan'] && !$s['api_auth'];
 }
 
 function go2rtcLocalDir()
@@ -341,8 +380,16 @@ function go2rtcLocalSource($camera, $hq = false)
     return $m[1] . $auth . '@' . $m[3];
 }
 
-// Источник, который go2rtc через API не примет: exec:, echo:, expr: или с пробелами — только в конфиг при запуске
+// Источник, который go2rtc через API не примет: exec:, echo:, expr: или с пробелами — только в конфиг при запуске.
+// С файлом данных — все камеры модуля в строке конфига: PUT записал бы их (с паролями) в файл go2rtc
 function go2rtcLocalConfigOnly($src)
+{
+    $s = go2rtcLocalSettings();
+    return $s['file'] || go2rtcLocalApiRejects($src);
+}
+
+// go2rtc через API такой источник не примет (exec:, echo:, expr:, пробелы)
+function go2rtcLocalApiRejects($src)
 {
     return (bool)preg_match('/^(exec|echo|expr):/i', $src) || (bool)preg_match('/\s/', $src);
 }
@@ -389,14 +436,17 @@ function go2rtcLocalConfig()
 {
     $s = go2rtcLocalSettings();
     $ffmpeg = $s['ffmpeg'] != '' ? $s['ffmpeg'] : (go2rtcLocalWindows() ? 'ffmpeg.exe' : 'ffmpeg');
-    $rtsp = array('listen' => ':' . $s['rtsp_port']);
-    if ($s['rtsp_user'] != '') {
-        $rtsp['username'] = $s['rtsp_user'];
-        $rtsp['password'] = $s['rtsp_password'];
+    // значения модуля задаются явно — перекрывают то же самое из файла данных (строка идёт вторым конфигом)
+    $rtsp = array('listen' => ':' . $s['rtsp_port'], 'username' => $s['rtsp_user'], 'password' => $s['rtsp_user'] != '' ? $s['rtsp_password'] : '');
+    $api = array('listen' => ($s['api_lan'] ? '' : '127.0.0.1') . ':' . $s['api_port'], 'origin' => '*',
+        'username' => '', 'password' => '', 'local_auth' => false);
+    if (go2rtcLocalApiLocked()) {
+        $api['username'] = $s['api_user'];
+        $api['password'] = $s['api_password'] != '' ? $s['api_password'] : go2rtcLocalApiPassword();
     }
     $config = array(
         'log' => array('level' => 'info'),
-        'api' => array('listen' => ($s['api_lan'] ? '' : '127.0.0.1') . ':' . $s['api_port'], 'origin' => '*'),
+        'api' => $api,
         'rtsp' => $rtsp,
         'webrtc' => array('listen' => ':' . $s['webrtc_port']),
         'ffmpeg' => array('bin' => $ffmpeg),
@@ -421,7 +471,17 @@ function go2rtcLocalCommand()
     if ($bin == '' || !is_file($bin)) {
         return '';
     }
-    $cmd = (!empty($state['launch']) ? $state['launch'] . ' ' : '') . go2rtcLocalArg($bin) . ' -config ' . go2rtcLocalArg(go2rtcLocalConfig());
+    $s = go2rtcLocalSettings();
+    $file = '';
+    if ($s['file']) {
+        // файл данных первым: в него go2rtc пишет сам (PatchConfig пишет в первый файловый конфиг)
+        if (!is_file($s['file_path'])) {
+            go2rtcLocalPrepareDir();
+            @file_put_contents($s['file_path'], "# go2rtc: data saved by go2rtc itself (HomeKit pairings, cloud logins, streams from its web UI)\n");
+        }
+        $file = ' -config ' . go2rtcLocalArg($s['file_path']);
+    }
+    $cmd = (!empty($state['launch']) ? $state['launch'] . ' ' : '') . go2rtcLocalArg($bin) . $file . ' -config ' . go2rtcLocalArg(go2rtcLocalConfig());
     return $cmd;
 }
 
@@ -616,7 +676,7 @@ function go2rtcLocalTest($src)
     if ($src == '') {
         return array('ok' => false, 'error' => 'empty source');
     }
-    if (go2rtcLocalConfigOnly($src)) {
+    if (go2rtcLocalApiRejects($src)) {
         return array('ok' => false, 'error' => go2rtcLang('GO2RTC_LOCAL_TEST_CONFIG'));
     }
     if (!go2rtcLocalPing()) {
@@ -705,6 +765,101 @@ function go2rtcLocalTick(&$last_register)
     }
 }
 
+// Импорт своего конфига go2rtc в файл данных встроенного (прежний — в .bak). $text — содержимое YAML.
+// Порты, API, RTSP-пароль и ffmpeg.bin из файла перекроет модуль; потоки, пресеты ffmpeg, homekit, токены — остаются
+function go2rtcLocalImport($text, &$error = '')
+{
+    $error = '';
+    $text = (string)$text;
+    if (trim($text) == '' || strlen($text) > 1024 * 1024 || strpos($text, ':') === false) {
+        $error = go2rtcLang('GO2RTC_LOCAL_IMPORT_BAD');
+        return false;
+    }
+    $s = go2rtcLocalSettings();
+    go2rtcLocalPrepareDir();
+    if (is_file($s['file_path'])) {
+        @copy($s['file_path'], $s['file_path'] . '.' . date('Ymd-His') . '.bak');
+    }
+    if (@file_put_contents($s['file_path'], $text) === false) {
+        $error = 'cannot write ' . $s['file_path'];
+        return false;
+    }
+    $config = go2rtcModuleConfig();
+    if (empty($config['GO2RTC_FILE'])) {
+        $config['GO2RTC_API_AUTH'] = '1'; // файл включается импортом — API из сети сразу с паролем (можно выключить)
+    }
+    $config['GO2RTC_FILE'] = '1';
+    go2rtcModuleConfigSave($config);
+    DebMes('go2rtc: config imported into ' . $s['file_path'] . ' (' . strlen($text) . ' bytes)', 'go2rtc');
+    go2rtcLocalControl('restart');
+    return true;
+}
+
+// Свой путь к файлу данных: абсолютный; внутри сайта — только в cms/go2rtc (закрыта от доступа по ссылке)
+function go2rtcLocalFilePathOk($path)
+{
+    $path = str_replace('\\', '/', (string)$path);
+    if (!preg_match('#^(/|[a-z]:/)#i', $path) || strpos($path, '..') !== false) {
+        return false;
+    }
+    $root = str_replace('\\', '/', rtrim(ROOT, '/\\')) . '/';
+    if (stripos($path, $root) === 0 && stripos($path, str_replace('\\', '/', go2rtcLocalDir()) . '/') !== 0) {
+        return false;
+    }
+    return true;
+}
+
+// Конфиг внешнего go2rtc (адрес и логин из настроек внешнего режима) — для импорта
+function go2rtcLocalExternalConfig(&$error = '')
+{
+    $config = go2rtcModuleConfig();
+    $url = isset($config['GO2RTC_URL']) ? rtrim((string)$config['GO2RTC_URL'], '/') : '';
+    $error = '';
+    if ($url == '') {
+        $error = go2rtcLang('GO2RTC_LOCAL_IMPORT_NO_URL');
+        return '';
+    }
+    $headers = "User-Agent: MajorDoMo-go2rtc\r\n";
+    if (!empty($config['GO2RTC_USER'])) {
+        $headers .= 'Authorization: Basic ' . base64_encode($config['GO2RTC_USER'] . ':' . (isset($config['GO2RTC_PASSWORD']) ? $config['GO2RTC_PASSWORD'] : '')) . "\r\n";
+    }
+    $ctx = stream_context_create(array('http' => array('timeout' => 5, 'ignore_errors' => true, 'header' => $headers)));
+    $body = @file_get_contents($url . '/api/config', false, $ctx);
+    $code = (isset($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $m)) ? (int)$m[1] : 0;
+    if ($code != 200 || trim((string)$body) == '') {
+        $error = sprintf(go2rtcLang('GO2RTC_LOCAL_IMPORT_FAILED'), $url, $code);
+        return '';
+    }
+    return (string)$body;
+}
+
+// Потоки из файла данных (заведены в go2rtc им самим или через его веб-интерфейс): имена
+function go2rtcLocalFileStreams()
+{
+    $s = go2rtcLocalSettings();
+    if (!$s['file'] || !is_file($s['file_path'])) {
+        return array();
+    }
+    // ключи первого уровня внутри streams: (go2rtc пишет файл блочным YAML)
+    $names = array();
+    $in = false;
+    $indent = 0;
+    foreach (preg_split('/\r?\n/', (string)@file_get_contents($s['file_path'])) as $line) {
+        if (preg_match('/^streams:\s*$/', $line)) {
+            $in = true;
+            continue;
+        }
+        if ($in && preg_match('/^\S/', $line)) {
+            $in = false;
+        }
+        if ($in && preg_match('/^(\s+)([^\s#\-][^:]*):(\s|$)/', $line, $m) && (!$indent || strlen($m[1]) == $indent)) {
+            $indent = strlen($m[1]);
+            $names[] = trim($m[2], " '\"");
+        }
+    }
+    return $names;
+}
+
 // Состояние для панели
 function go2rtcLocalStatus()
 {
@@ -725,6 +880,7 @@ function go2rtcLocalStatus()
         'ffmpeg_version' => $ffmpeg_version,
         'cycle' => (int)getGlobal('ThisComputer.cycle_go2rtcRun'),
         'update' => !empty($state['version']) && $state['version'] !== GO2RTC_LOCAL_VERSION,
+        'file' => go2rtcLocalSettings()['file'],
     );
 }
 

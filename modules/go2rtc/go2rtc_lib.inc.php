@@ -250,6 +250,11 @@ function go2rtcUrl($name, $format = 'rtsp')
         $auth = ($cfg['rtsp_user'] != '') ? rawurlencode($cfg['rtsp_user']) . ':' . rawurlencode($cfg['rtsp_password']) . '@' : '';
         return 'rtsp://' . $auth . $host . ':' . $cfg['rtsp_port'] . '/' . $src;
     }
+    if ($cfg['local'] && $format != 'webrtc' && function_exists('go2rtcLocalApiLocked') && go2rtcLocalApiLocked()) {
+        // API встроенного go2rtc из сети — по паролю, а пароль API устройству давать нельзя (это доступ к конфигу):
+        // кадр — через сервер (подписанная ссылка на час), поток — RTSP
+        return ($format == 'frame') ? go2rtcSignedUrl('frame', $name, time() + 3600, true) : go2rtcUrl($name, 'rtsp');
+    }
     if ($format == 'mp4') {
         // fMP4 по HTTP: плееры без RTSP (VLC без live555, Chromecast, DLNA)
         return $base . '/api/stream.mp4?src=' . $src;
@@ -1021,8 +1026,8 @@ function go2rtcDirectBase()
     if ($cfg['url'] == '' || $cfg['user'] != '' || $cfg['password'] != '') {
         return '';
     }
-    if ($cfg['local'] && !$cfg['api_lan']) {
-        return ''; // встроенный go2rtc слушает только 127.0.0.1 — браузеру его не видно
+    if ($cfg['local'] && (!$cfg['api_lan'] || go2rtcLocalApiLocked())) {
+        return ''; // встроенный go2rtc слушает только 127.0.0.1 или из сети — по паролю: браузер напрямую не пустят
     }
     return go2rtcDeviceBase();
 }

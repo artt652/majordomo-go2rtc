@@ -89,6 +89,21 @@ class go2rtc extends module
             }
             $this->config['GO2RTC_API_LAN'] = gr('go2rtc_api_lan', 'int') ? '1' : '0';
             $this->config['GO2RTC_FFMPEG'] = trim((string)gr('go2rtc_ffmpeg'));
+            // файл данных go2rtc (сопряжения, токены, потоки из его веб-интерфейса) и пароль API из сети
+            $this->config['GO2RTC_FILE'] = gr('go2rtc_file', 'int') ? '1' : '0';
+            $path = trim((string)gr('go2rtc_file_path'));
+            if ($path != '' && !go2rtcLocalFilePathOk($path)) {
+                $out['LOCAL_FILE_PATH_BAD'] = 1;
+                $path = isset($this->config['GO2RTC_FILE_PATH']) ? $this->config['GO2RTC_FILE_PATH'] : '';
+            }
+            $this->config['GO2RTC_FILE_PATH'] = $path;
+            $this->config['GO2RTC_API_AUTH'] = gr('go2rtc_api_auth', 'int') ? '1' : '0';
+            $user = trim((string)gr('go2rtc_api_local_user'));
+            $this->config['GO2RTC_API_LOCAL_USER'] = ($user != '') ? $user : 'admin';
+            $password = (string)gr('go2rtc_api_local_password');
+            if ($password != '') {
+                $this->config['GO2RTC_API_LOCAL_PASSWORD'] = $password;
+            }
             $this->saveConfig();
             @unlink(ROOT . 'cms/cached/go2rtc_streams.json');
             $out['GO2RTC_SAVED'] = 1;
@@ -101,6 +116,31 @@ class go2rtc extends module
             $out['LOCAL_INSTALLED_NOW'] = $installed ? 1 : 0;
             if ($installed) {
                 go2rtcLocalControl('restart');
+            }
+            $out['TAB'] = 'tab_settings';
+        }
+        // импорт конфига go2rtc в файл данных встроенного: загрузка, путь на сервере или внешний go2rtc из настроек
+        if (gr('local_import')) {
+            $text = '';
+            $error = '';
+            if (gr('local_import') == 'external') {
+                $text = go2rtcLocalExternalConfig($error);
+            } elseif (!empty($_FILES['import_file']['tmp_name']) && is_uploaded_file($_FILES['import_file']['tmp_name'])) {
+                $text = (string)file_get_contents($_FILES['import_file']['tmp_name']);
+            } elseif (trim((string)gr('import_path')) != '') {
+                $path = trim((string)gr('import_path'));
+                $text = is_file($path) && is_readable($path) ? (string)file_get_contents($path) : '';
+                if ($text == '') {
+                    $error = go2rtcLang('GO2RTC_LOCAL_IMPORT_NO_FILE') . ': ' . $path;
+                }
+            } else {
+                $error = go2rtcLang('GO2RTC_LOCAL_IMPORT_NO_FILE');
+            }
+            if ($error == '' && go2rtcLocalImport($text, $error)) {
+                $this->config = go2rtcModuleConfig();
+                $out['LOCAL_IMPORTED'] = 1;
+            } else {
+                $out['LOCAL_IMPORT_ERROR'] = $h($error);
             }
             $out['TAB'] = 'tab_settings';
         }
@@ -177,6 +217,31 @@ class go2rtc extends module
             $out[$key] = $h(isset($this->config[$key]) ? $this->config[$key] : '');
         }
         $out['GO2RTC_API_LAN'] = (!isset($this->config['GO2RTC_API_LAN']) || $this->config['GO2RTC_API_LAN'] !== '0') ? 1 : 0;
+        $ls = go2rtcLocalSettings();
+        $out['GO2RTC_FILE'] = $ls['file'] ? 1 : 0;
+        $out['GO2RTC_FILE_PATH'] = $h(isset($this->config['GO2RTC_FILE_PATH']) ? $this->config['GO2RTC_FILE_PATH'] : '');
+        $out['GO2RTC_FILE_DEFAULT'] = $h(go2rtcLocalDir() . '/go2rtc.ini');
+        $out['GO2RTC_API_AUTH'] = $ls['api_auth'] ? 1 : 0;
+        $out['GO2RTC_API_LOCAL_USER'] = $h($ls['api_user']);
+        $out['GO2RTC_API_LOCAL_PASSWORD'] = $h($ls['api_password']);
+        if ($out['LOCAL']) {
+            if ($ls['api_auth'] && $ls['api_password'] == '') {
+                $out['GO2RTC_API_LOCAL_PASSWORD'] = $h(go2rtcLocalApiPassword());
+            }
+            $out['LOCAL_OPEN_FILE'] = go2rtcLocalApiOpenFile() ? 1 : 0;
+            $out['LOCAL_LOCKED'] = go2rtcLocalApiLocked() ? 1 : 0;
+            if ($ls['api_lan']) {
+                $ip = function_exists('getLocalIp') ? getLocalIp() : '';
+                $out['LOCAL_WEB_UI'] = $h('http://' . ($ip ? $ip : $_SERVER['SERVER_NAME']) . ':' . $ls['api_port'] . '/');
+            }
+            if ($ls['file']) {
+                clearstatcache();
+                $out['LOCAL_FILE'] = $h($ls['file_path']);
+                $out['LOCAL_FILE_SIZE'] = is_file($ls['file_path']) ? (int)filesize($ls['file_path']) : 0;
+                $out['LOCAL_FILE_STREAMS'] = $h(implode(', ', go2rtcLocalFileStreams()));
+            }
+            $out['LOCAL_HAS_EXTERNAL'] = !empty($this->config['GO2RTC_URL']) ? 1 : 0;
+        }
         $st = go2rtcLocalStatus();
         $out['LOCAL_VERSION'] = $h(GO2RTC_LOCAL_VERSION);
         $out['LOCAL_INSTALLED'] = $h($st['installed']);
@@ -324,7 +389,7 @@ class go2rtc extends module
                         }
                     }
                 }
-                $out['CAMERA_RESTART'] = $restart ? 1 : 0;
+                $out['CAMERA_RESTART'] = $restart ? (go2rtcLocalSettings()['file'] ? 2 : 1) : 0;
                 @unlink(ROOT . 'cms/cached/go2rtc_streams.json');
             }
         }
