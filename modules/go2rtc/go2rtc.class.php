@@ -61,7 +61,7 @@ class go2rtc extends module
     {
         $this->getConfig();
         // поле, добавленное после первой версии таблицы (установка модуля заново добавляет его сама)
-        if (!SQLSelectOne("SHOW COLUMNS FROM go2rtc_cameras LIKE 'AUDIO'")) {
+        if (!SQLSelectOne("SHOW COLUMNS FROM go2rtc_cameras LIKE 'AUDIO'") || !SQLSelectOne("SHOW COLUMNS FROM go2rtc_cameras LIKE 'SOURCE_HQ'")) {
             $this->dbInstall('');
         }
         $h = function ($text) {
@@ -81,10 +81,35 @@ class go2rtc extends module
             $this->config['GO2RTC_WEBTORRENT'] = gr('go2rtc_webtorrent', 'int') ? '1' : '0';
             $this->config['GO2RTC_WT_MINUTES'] = gr('go2rtc_wt_minutes', 'int') ? (string)max(1, min(1440, gr('go2rtc_wt_minutes', 'int'))) : '';
             $this->config['GO2RTC_WAIT'] = gr('go2rtc_wait', 'int') ? (string)max(2, min(25, gr('go2rtc_wait', 'int'))) : '';
+            // встроенный go2rtc: режим, порты, доступ к API из сети, ffmpeg
+            $this->config['GO2RTC_MODE'] = (gr('go2rtc_mode') == 'local') ? 'local' : '';
+            foreach (array('GO2RTC_API_PORT', 'GO2RTC_WEBRTC_PORT') as $key) {
+                $port = gr(strtolower($key), 'int');
+                $this->config[$key] = ($port >= 1024 && $port <= 65535) ? (string)$port : '';
+            }
+            $this->config['GO2RTC_API_LAN'] = gr('go2rtc_api_lan', 'int') ? '1' : '0';
+            $this->config['GO2RTC_FFMPEG'] = trim((string)gr('go2rtc_ffmpeg'));
             $this->saveConfig();
             @unlink(ROOT . 'cms/cached/go2rtc_streams.json');
             $out['GO2RTC_SAVED'] = 1;
             $out['TAB'] = 'tab_settings';
+        }
+        // встроенный go2rtc: установка и управление (запуск и остановку выполняет цикл cycle_go2rtc)
+        if (gr('local_install')) {
+            $installed = false;
+            $out['LOCAL_LOG'] = $h(go2rtcLocalInstall($installed));
+            $out['LOCAL_INSTALLED_NOW'] = $installed ? 1 : 0;
+            if ($installed) {
+                go2rtcLocalControl('restart');
+            }
+            $out['TAB'] = 'tab_settings';
+        }
+        foreach (array('start', 'stop', 'restart') as $action) {
+            if (gr('local_' . $action)) {
+                go2rtcLocalControl($action);
+                $out['LOCAL_ACTION'] = $action;
+                $out['TAB'] = 'tab_settings';
+            }
         }
         // камеры без правила «Контроля доступа»: только администратору или всем
         if (gr('default_access_save')) {
@@ -127,9 +152,18 @@ class go2rtc extends module
         go2rtcRulesMigrate();
         // камера: название, порядок, второй поток, привязка к объекту
         $camera = gr('camera_id', 'int') ? go2rtcCameraGet(gr('camera_id', 'int')) : array();
-        if (!empty($camera['ID'])) {
-            $this->adminCamera($camera, $out, $h);
-            return;
+        if (!empty($camera['ID']) || (gr('camera_id') == 'new' && go2rtcLocal())) {
+            if (empty($camera['ID'])) {
+                $camera = array('ID' => 0, 'NAME' => '', 'TITLE' => '', 'PRIORITY' => 0, 'HIDDEN' => 0, 'AUDIO' => 1, 'HQ_NAME' => '',
+                    'LINKED_OBJECT' => '', 'ONLINE_PROPERTY' => '', 'VIEWERS_PROPERTY' => '', 'SHOW_PROPERTY' => '', 'STATE_METHOD' => '',
+                    'ONLINE' => 0, 'CHECKED' => 0, 'LOCAL' => 1, 'SOURCE' => '', 'SOURCE_USER' => '', 'SOURCE_PASSWORD' => '', 'SOURCE_HQ' => '');
+            }
+            if ($this->adminCamera($camera, $out, $h) === 'deleted') {
+                $out['CAMERA_DELETED'] = 1;
+                $out['TAB'] = 'tab_cameras';
+            } else {
+                return;
+            }
         }
 
         foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_RTSP_PORT', 'GO2RTC_RTSP_USER',
@@ -137,6 +171,26 @@ class go2rtc extends module
             $out[$key] = $h(isset($this->config[$key]) ? $this->config[$key] : '');
         }
         $out['GO2RTC_WEBTORRENT'] = !empty($this->config['GO2RTC_WEBTORRENT']) ? 1 : 0;
+        // встроенный go2rtc
+        $out['LOCAL'] = go2rtcLocal() ? 1 : 0;
+        foreach (array('GO2RTC_API_PORT', 'GO2RTC_WEBRTC_PORT', 'GO2RTC_FFMPEG') as $key) {
+            $out[$key] = $h(isset($this->config[$key]) ? $this->config[$key] : '');
+        }
+        $out['GO2RTC_API_LAN'] = (!isset($this->config['GO2RTC_API_LAN']) || $this->config['GO2RTC_API_LAN'] !== '0') ? 1 : 0;
+        $st = go2rtcLocalStatus();
+        $out['LOCAL_VERSION'] = $h(GO2RTC_LOCAL_VERSION);
+        $out['LOCAL_INSTALLED'] = $h($st['installed']);
+        $out['LOCAL_ASSET'] = $h($st['asset']);
+        $out['LOCAL_PLATFORM_ERROR'] = $h($st['platform_error']);
+        $out['LOCAL_RUNNING'] = $h($st['running']);
+        $out['LOCAL_PID'] = (int)$st['pid'];
+        $out['LOCAL_WANTED'] = $st['wanted'] ? 1 : 0;
+        $out['LOCAL_ERROR'] = $h($st['error']);
+        $out['LOCAL_UPDATE'] = $st['update'] ? 1 : 0;
+        $out['LOCAL_FFMPEG'] = $h($st['ffmpeg']);
+        $out['LOCAL_FFMPEG_VERSION'] = $h($st['ffmpeg_version']);
+        $out['LOCAL_CYCLE'] = ($st['cycle'] && time() - $st['cycle'] < 120) ? 1 : 0;
+        $out['LOCAL_LOG_TAIL'] = $out['LOCAL'] ? $h(go2rtcLocalLog(30)) : '';
         $out['WEBTORRENT'] = $out['GO2RTC_WEBTORRENT'];
         $out['ENABLED'] = go2rtcEnabled() ? 1 : 0;
         $out['DIRECT'] = $h(go2rtcDirectBase());
@@ -203,7 +257,78 @@ class go2rtc extends module
     function adminCamera($camera, &$out, $h)
     {
         $id = (int)$camera['ID'];
-        if (gr('camera_save')) {
+        $is_local = !empty($camera['LOCAL']);
+        // камера встроенного go2rtc: удалить (поток из go2rtc, запись, привязку свойства)
+        if ($is_local && $id && gr('camera_delete')) {
+            if ($camera['LINKED_OBJECT'] != '' && $camera['SHOW_PROPERTY'] != '') {
+                removeLinkedProperty($camera['LINKED_OBJECT'], $camera['SHOW_PROPERTY'], $this->name);
+            }
+            go2rtcLocalDeleteStream($camera['NAME']);
+            go2rtcLocalDeleteStream($camera['NAME'] . '_hq');
+            SQLExec("DELETE FROM go2rtc_cameras WHERE ID=" . $id);
+            DebMes('go2rtc: camera ' . $camera['NAME'] . ' deleted', 'go2rtc');
+            return 'deleted';
+        }
+        // камера встроенного go2rtc: источник (адрес, логин, пароль, второй поток); «Проверить» — без сохранения
+        if ($is_local && (gr('camera_save') || gr('source_test'))) {
+            if (!$id) {
+                $camera['NAME'] = trim((string)gr('name'));
+            }
+            $camera['SOURCE'] = trim((string)gr('source'));
+            $camera['SOURCE_HQ'] = trim((string)gr('source_hq'));
+            $camera['SOURCE_USER'] = trim((string)gr('source_user'));
+            if ((string)gr('source_password') !== '' || $camera['SOURCE_USER'] === '') {
+                $camera['SOURCE_PASSWORD'] = $camera['SOURCE_USER'] === '' ? '' : (string)gr('source_password'); // пусто — прежний
+            }
+            $error = '';
+            if (!$id && !preg_match('/^[A-Za-z0-9][A-Za-z0-9_\-]{0,63}$/', $camera['NAME'])) {
+                $error = go2rtcLang('GO2RTC_LOCAL_NAME_BAD');
+            } elseif (!$id && (SQLSelectOne("SELECT ID FROM go2rtc_cameras WHERE NAME='" . DBSafe($camera['NAME']) . "'") || substr($camera['NAME'], -3) == '_hq')) {
+                $error = go2rtcLang('GO2RTC_LOCAL_NAME_TAKEN');
+            } elseif ($camera['SOURCE'] == '') {
+                $error = go2rtcLang('GO2RTC_LOCAL_SOURCE_EMPTY');
+            }
+            if (gr('source_test')) {
+                $test = ($error == '' || $camera['SOURCE'] != '') ? go2rtcLocalTest(go2rtcLocalSource($camera)) : array('ok' => false, 'error' => $error);
+                $out['TEST_DONE'] = 1;
+                $out['TEST_OK'] = $test['ok'] ? 1 : 0;
+                $out['TEST_IMAGE'] = $test['ok'] ? base64_encode($test['jpeg']) : '';
+                $out['TEST_ERROR'] = $test['ok'] ? '' : $h($test['error']);
+            } elseif ($error != '') {
+                $out['CAMERA_ERROR'] = $h($error);
+                $local_invalid = true;
+            } else {
+                $camera['HQ_NAME'] = $camera['SOURCE_HQ'] != '' ? $camera['NAME'] . '_hq' : '';
+                if (!$id) {
+                    $max = SQLSelectOne("SELECT MAX(PRIORITY) AS P FROM go2rtc_cameras");
+                    $camera['PRIORITY'] = (!empty($max['P']) ? (int)$max['P'] : 0) + 10;
+                    $camera['TITLE'] = trim((string)gr('title')) != '' ? trim((string)gr('title')) : $camera['NAME'];
+                    $camera['ADDED'] = time();
+                    unset($camera['ID']);
+                    $camera['ID'] = $id = SQLInsert('go2rtc_cameras', $camera);
+                    DebMes('go2rtc: camera ' . $camera['NAME'] . ' added', 'go2rtc');
+                } else {
+                    SQLUpdate('go2rtc_cameras', $camera);
+                }
+                // в работающем go2rtc: обычный источник — сразу через API; exec:/echo:/с пробелами — цикл перезапустит go2rtc
+                $restart = false;
+                foreach (array($camera['NAME'] => go2rtcLocalSource($camera), $camera['NAME'] . '_hq' => go2rtcLocalSource($camera, true)) as $name => $src) {
+                    if ($src == '') {
+                        go2rtcLocalDeleteStream($name);
+                    } elseif (go2rtcLocalConfigOnly($src)) {
+                        $restart = true;
+                    } elseif (go2rtcLocalPing()) {
+                        $put = go2rtcLocalPut($name, $src);
+                        if ($put != '') {
+                            $out['CAMERA_ERROR'] = $h($put);
+                        }
+                    }
+                }
+                $out['CAMERA_RESTART'] = $restart ? 1 : 0;
+                @unlink(ROOT . 'cms/cached/go2rtc_streams.json');
+            }
+        }
+        if (gr('camera_save') && $id && empty($local_invalid) && !gr('source_test')) {
             $old_object = $camera['LINKED_OBJECT'];
             $old_show = $camera['SHOW_PROPERTY'];
             $clean = function ($value) {
@@ -214,7 +339,9 @@ class go2rtc extends module
             $camera['HIDDEN'] = gr('hidden', 'int') ? 1 : 0;
             $camera['AUDIO'] = gr('audio', 'int') ? 1 : 0;
             $hq = trim((string)gr('hq_name'));
-            $camera['HQ_NAME'] = ($hq != '' && $hq != $camera['NAME'] && go2rtcHas($hq)) ? $hq : '';
+            if (!$is_local) {
+                $camera['HQ_NAME'] = ($hq != '' && $hq != $camera['NAME'] && go2rtcHas($hq)) ? $hq : '';
+            }
             foreach (array('LINKED_OBJECT', 'ONLINE_PROPERTY', 'VIEWERS_PROPERTY', 'SHOW_PROPERTY', 'STATE_METHOD') as $field) {
                 $camera[$field] = $clean(gr(strtolower($field)));
             }
@@ -245,6 +372,13 @@ class go2rtc extends module
             }
         }
         $out['CAMERA_AUDIO'] = isset($camera['AUDIO']) ? (int)$camera['AUDIO'] : 1;
+        $out['CAMERA_LOCAL'] = $is_local ? 1 : 0;
+        $out['CAMERA_NEW'] = $id ? 0 : 1;
+        foreach (array('SOURCE', 'SOURCE_USER', 'SOURCE_HQ') as $field) {
+            $out['CAMERA_' . $field] = $h(isset($camera[$field]) ? $camera[$field] : '');
+        }
+        $out['CAMERA_HAS_PASSWORD'] = !empty($camera['SOURCE_PASSWORD']) ? 1 : 0;
+        $out['CAMERA_CONFIG_ONLY'] = ($is_local && go2rtcLocalConfigOnly((string)$camera['SOURCE'])) ? 1 : 0;
         foreach (array('ID', 'NAME', 'TITLE', 'PRIORITY', 'HIDDEN', 'HQ_NAME', 'LINKED_OBJECT', 'ONLINE_PROPERTY', 'VIEWERS_PROPERTY', 'SHOW_PROPERTY', 'STATE_METHOD') as $field) {
             $out['CAMERA_' . $field] = $h($camera[$field]);
         }
@@ -533,6 +667,9 @@ class go2rtc extends module
     function uninstall()
     {
         unsubscribeFromEvent($this->name, 'MINUTELY');
+        if (function_exists('go2rtcLocal') && go2rtcLocal()) {
+            go2rtcLocalStop();
+        }
         SQLDropTable('go2rtc_links');
         SQLDropTable('go2rtc_cameras');
         parent::uninstall();
@@ -572,6 +709,11 @@ class go2rtc extends module
  go2rtc_cameras: VIEWERS int(10) NOT NULL DEFAULT '0'
  go2rtc_cameras: CHECKED int(10) NOT NULL DEFAULT '0'
  go2rtc_cameras: ADDED int(10) NOT NULL DEFAULT '0'
+ go2rtc_cameras: LOCAL int(3) NOT NULL DEFAULT '0'
+ go2rtc_cameras: SOURCE text
+ go2rtc_cameras: SOURCE_USER varchar(100) NOT NULL DEFAULT ''
+ go2rtc_cameras: SOURCE_PASSWORD varchar(255) NOT NULL DEFAULT ''
+ go2rtc_cameras: SOURCE_HQ text
  go2rtc_cameras: INDEX (NAME)
  go2rtc_cameras: INDEX (LINKED_OBJECT)
 EOD;

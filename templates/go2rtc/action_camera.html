@@ -1,11 +1,19 @@
 <!-- Камера: название, порядок, скрыть, поток высокого качества, привязка к объекту MajorDoMo -->
 <ul class="breadcrumb">
 	<li><a href="?tab=tab_cameras"><#LANG_GO2RTC_TITLE#></a></li>
-	<li class="active">[#CAMERA_TITLE#]</li>
+	<li class="active">[#if CAMERA_NEW="1"#]<#LANG_GO2RTC_LOCAL_ADD#>[#else CAMERA_NEW#][#CAMERA_TITLE#][#endif CAMERA_NEW#]</li>
 </ul>
+[#if CAMERA_ERROR!=""#]<div class="alert alert-danger">[#CAMERA_ERROR#]</div>[#endif CAMERA_ERROR#]
+[#if CAMERA_RESTART="1"#]<div class="alert alert-info"><#LANG_GO2RTC_LOCAL_RESTART_NOTE#></div>[#endif CAMERA_RESTART#]
+[#if TEST_DONE="1"#]
+<div class="alert [#if TEST_OK="1"#]alert-success[#else TEST_OK#]alert-danger[#endif TEST_OK#]">
+	[#if TEST_OK="1"#]<#LANG_GO2RTC_LOCAL_TEST_OK#><br><img src="data:image/jpeg;base64,[#TEST_IMAGE#]" alt="" style="max-width:100%;max-height:240px;margin-top:8px;border-radius:4px">[#else TEST_OK#]<#LANG_GO2RTC_LOCAL_TEST_FAIL#>: <pre style="white-space:pre-wrap;margin:6px 0 0">[#TEST_ERROR#]</pre>[#endif TEST_OK#]
+</div>
+[#endif TEST_DONE#]
 [#if CAMERA_SAVED="1"#]<div class="alert alert-success"><#LANG_DATA_SAVED#></div>[#endif CAMERA_SAVED#]
 [#if DEVICE_CREATED="1"#]<div class="alert alert-success"><#LANG_GO2RTC_DEVICE_CREATED#> [#CAMERA_LINKED_OBJECT#]</div>[#endif DEVICE_CREATED#]
 <div class="row">
+[#if CAMERA_NEW!="1"#]
 <div class="col-md-4 col-md-push-8" style="margin-bottom:15px">
 	<!-- превью: снимки; нажатие — живое видео (ещё раз — снова снимки) -->
 	<div class="g2-preview-wrap">
@@ -14,8 +22,52 @@
 	</div>
 	<p class="help-block"><#LANG_GO2RTC_STREAM#>: <code>[#CAMERA_NAME#]</code>[#if CAMERA_CHECKED!=""#] · [#if CAMERA_ONLINE="1"#]<#LANG_GO2RTC_ONLINE#>[#else CAMERA_ONLINE#]<#LANG_GO2RTC_OFFLINE#>[#endif CAMERA_ONLINE#] ([#CAMERA_CHECKED#])[#endif CAMERA_CHECKED#]</p>
 </div>
-<div class="col-md-8 col-md-pull-4">
+[#endif CAMERA_NEW#]
+<div class="col-md-8[#if CAMERA_NEW!="1"#] col-md-pull-4[#endif#]">
 <form action="?" method="post" class="form-horizontal" name="frmCamera">
+[#if CAMERA_LOCAL="1"#]
+<!-- камера встроенного go2rtc: источник -->
+<h4 style="margin-top:0"><#LANG_GO2RTC_LOCAL_SOURCE#></h4>
+[#if CAMERA_NEW="1"#]
+<div class="form-group">
+	<label class="col-sm-4 control-label"><#LANG_GO2RTC_STREAM#>:</label>
+	<div class="col-sm-8">
+		<input type="text" name="name" class="form-control" value="[#CAMERA_NAME#]" placeholder="door" pattern="[A-Za-z0-9][A-Za-z0-9_\-]{0,63}" required>
+		<p class="help-block"><#LANG_GO2RTC_LOCAL_NAME_HELP#></p>
+	</div>
+</div>
+[#endif CAMERA_NEW#]
+<div class="form-group">
+	<label class="col-sm-4 control-label"><#LANG_GO2RTC_LOCAL_URL#>:</label>
+	<div class="col-sm-8">
+		<input type="text" name="source" class="form-control" value="[#CAMERA_SOURCE#]" placeholder="rtsp://192.168.1.20:554/stream1" autocomplete="off">
+		<p class="help-block"><#LANG_GO2RTC_LOCAL_URL_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 control-label"><#LANG_GO2RTC_API_LOGIN#>:</label>
+	<div class="col-sm-8">
+		<div class="row g2-pair">
+			<div class="col-sm-6"><input type="text" name="source_user" class="form-control" value="[#CAMERA_SOURCE_USER#]" autocomplete="off" placeholder="<#LANG_GO2RTC_LOGIN#>"></div>
+			<div class="col-sm-6"><input type="password" name="source_password" class="form-control" value="" autocomplete="new-password" placeholder="[#if CAMERA_HAS_PASSWORD="1"#]<#LANG_GO2RTC_LOCAL_PASSWORD_KEEP#>[#else CAMERA_HAS_PASSWORD#]<#LANG_GO2RTC_PASSWORD#>[#endif CAMERA_HAS_PASSWORD#]"></div>
+		</div>
+		<p class="help-block"><#LANG_GO2RTC_LOCAL_LOGIN_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 control-label"><#LANG_GO2RTC_LOCAL_URL_HQ#>:</label>
+	<div class="col-sm-8">
+		<input type="text" name="source_hq" class="form-control" value="[#CAMERA_SOURCE_HQ#]" placeholder="rtsp://192.168.1.20:554/stream0" autocomplete="off">
+		<p class="help-block"><#LANG_GO2RTC_LOCAL_URL_HQ_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<div class="col-sm-offset-4 col-sm-8">
+		<button type="submit" name="source_test" value="1" class="btn btn-default"><#LANG_GO2RTC_LOCAL_TEST#></button>
+	</div>
+</div>
+<h4><#LANG_GO2RTC_LOCAL_VIEW#></h4>
+[#endif CAMERA_LOCAL#]
 <div class="form-group">
 	<label class="col-sm-4 control-label"><#LANG_GO2RTC_CAMERA_NAME#>:</label>
 	<div class="col-sm-8"><input type="text" name="title" class="form-control" value="[#CAMERA_TITLE#]" placeholder="[#CAMERA_NAME#]"></div>
@@ -34,6 +86,7 @@
 		<p class="help-block"><#LANG_GO2RTC_AUDIO_HELP#></p>
 	</div>
 </div>
+[#if CAMERA_LOCAL!="1"#]
 <div class="form-group">
 	<label class="col-sm-4 control-label"><#LANG_GO2RTC_HQ#>:</label>
 	<div class="col-sm-8">
@@ -44,6 +97,7 @@
 		<p class="help-block"><#LANG_GO2RTC_HQ_HELP#></p>
 	</div>
 </div>
+[#endif CAMERA_LOCAL#]
 
 <h4><#LANG_GO2RTC_LINK_OBJECT#></h4>
 <p class="help-block"><#LANG_GO2RTC_LINK_OBJECT_HELP#></p>
@@ -80,14 +134,16 @@
 <div class="form-group">
 	<div class="col-sm-offset-4 col-sm-8">
 		<button type="submit" class="btn btn-primary"><#LANG_GO2RTC_SAVE#></button>
-		[#if CAN_CREATE_DEVICE="1"#]<button type="submit" name="device_create" value="1" class="btn btn-default" onclick="return confirm('<#LANG_GO2RTC_DEVICE_CREATE_CONFIRM#>');"><#LANG_GO2RTC_DEVICE_CREATE#></button>[#endif CAN_CREATE_DEVICE#]
+		[#if CAMERA_NEW!="1"#][#if CAN_CREATE_DEVICE="1"#]<button type="submit" name="device_create" value="1" class="btn btn-default" onclick="return confirm('<#LANG_GO2RTC_DEVICE_CREATE_CONFIRM#>');"><#LANG_GO2RTC_DEVICE_CREATE#></button>[#endif CAN_CREATE_DEVICE#][#endif CAMERA_NEW#]
+		[#if CAMERA_LOCAL="1"#][#if CAMERA_NEW!="1"#]<button type="submit" name="camera_delete" value="1" class="btn btn-danger pull-right" onclick="return confirm('<#LANG_GO2RTC_LOCAL_DELETE_CONFIRM#>');"><#LANG_GO2RTC_LOCAL_DELETE#></button>[#endif CAMERA_NEW#][#endif CAMERA_LOCAL#]
 	</div>
 </div>
-<input type="hidden" name="camera_id" value="[#CAMERA_ID#]">
+<input type="hidden" name="camera_id" value="[#if CAMERA_NEW="1"#]new[#else CAMERA_NEW#][#CAMERA_ID#][#endif CAMERA_NEW#]">
 <input type="hidden" name="camera_save" value="1">
 </form>
 </div>
 </div>
+[#if CAMERA_NEW!="1"#]
 <div class="row"><div class="col-md-8" style="margin-top:10px">
 <!-- код для сцены (элемент «HTML») или шаблона -->
 <h4><#LANG_GO2RTC_SCENE_CODE#></h4>
@@ -103,6 +159,7 @@
 </div>
 <p class="help-block"><#LANG_GO2RTC_SCENE_CODE_HELP#></p>
 </div></div>
+[#endif CAMERA_NEW#]
 <style>
 	.g2-num { max-width: 140px; }
 	.g2-preview-wrap { position: relative; }
@@ -126,6 +183,7 @@
 	// адреса — из атрибутов: там &amp; браузер раскодирует, в тексте скрипта — нет
 	(function () {
 		var box = document.getElementById('g2_preview'), snd = document.getElementById('g2_preview_sound');
+		if (!box) return;
 		var direct = '[#DIRECT#]', player = '<#ROOTHTML#>templates/go2rtc/js/video-rtc.js', wait = [#WAIT#] || 6;
 		var view = null, live = false;
 		var texts = {on: '<#LANG_GO2RTC_SOUND_ON#>', off: '<#LANG_GO2RTC_SOUND_OFF#>'};
