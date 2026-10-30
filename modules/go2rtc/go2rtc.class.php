@@ -220,7 +220,6 @@ class go2rtc extends module
         $ls = go2rtcLocalSettings();
         $out['GO2RTC_FILE'] = $ls['file'] ? 1 : 0;
         $out['GO2RTC_FILE_PATH'] = $h(isset($this->config['GO2RTC_FILE_PATH']) ? $this->config['GO2RTC_FILE_PATH'] : '');
-        $out['GO2RTC_FILE_DEFAULT'] = $h(go2rtcLocalDir() . '/go2rtc.yaml.php');
         $out['GO2RTC_API_AUTH'] = $ls['api_auth'] ? 1 : 0;
         $out['GO2RTC_API_LOCAL_USER'] = $h($ls['api_user']);
         $out['GO2RTC_API_LOCAL_PASSWORD'] = $h($ls['api_password']);
