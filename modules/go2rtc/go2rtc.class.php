@@ -260,6 +260,7 @@ class go2rtc extends module
         }
         $exp = time() + 12 * 3600;
         $out['CAMERA_FRAME'] = $h(go2rtcSignedUrl('frame', $camera['NAME'], $exp));
+        $out['CAMERA_WHEP'] = $h(go2rtcSignedUrl('whep', $camera['NAME'], $exp));
         $out['WAIT'] = (int)go2rtcConfig()['wait'];
         $out['DIRECT'] = $h(go2rtcDirectBase());
         // код вставки в сцену (подпись — название камеры, переименование подхватится само); скобки — сущностями, иначе шаблонизатор панели выполнит его прямо здесь

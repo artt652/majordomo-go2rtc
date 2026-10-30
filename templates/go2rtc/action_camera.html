@@ -7,7 +7,11 @@
 [#if DEVICE_CREATED="1"#]<div class="alert alert-success"><#LANG_GO2RTC_DEVICE_CREATED#> [#CAMERA_LINKED_OBJECT#]</div>[#endif DEVICE_CREATED#]
 <div class="row">
 <div class="col-md-4 col-md-push-8" style="margin-bottom:15px">
-	<div class="g2-camera-preview" id="g2_preview" data-frame="[#CAMERA_FRAME#]" data-off="<#LANG_GO2RTC_CAM_OFFLINE#>"></div>
+	<!-- превью: снимки; нажатие — живое видео (ещё раз — снова снимки) -->
+	<div class="g2-preview-wrap">
+		<div class="g2-camera-preview" id="g2_preview" data-frame="[#CAMERA_FRAME#]" data-whep="[#CAMERA_WHEP#]" data-name="[#CAMERA_NAME#]" data-off="<#LANG_GO2RTC_CAM_OFFLINE#>" title="<#LANG_GO2RTC_CAM_LIVE#>"></div>
+		[#if CAMERA_AUDIO="1"#]<button type="button" class="g2-preview-sound" id="g2_preview_sound" title="<#LANG_GO2RTC_SOUND_ON#>">🔇</button>[#endif CAMERA_AUDIO#]
+	</div>
 	<p class="help-block"><#LANG_GO2RTC_STREAM#>: <code>[#CAMERA_NAME#]</code>[#if CAMERA_CHECKED!=""#] · [#if CAMERA_ONLINE="1"#]<#LANG_GO2RTC_ONLINE#>[#else CAMERA_ONLINE#]<#LANG_GO2RTC_OFFLINE#>[#endif CAMERA_ONLINE#] ([#CAMERA_CHECKED#])[#endif CAMERA_CHECKED#]</p>
 </div>
 <div class="col-md-8 col-md-pull-4">
@@ -101,7 +105,11 @@
 </div></div>
 <style>
 	.g2-num { max-width: 140px; }
-	.g2-camera-preview { background: #111; border-radius: 6px; overflow: hidden; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; position: relative; }
+	.g2-preview-wrap { position: relative; }
+	.g2-camera-preview { background: #111; border-radius: 6px; overflow: hidden; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
+	.g2-camera-preview.go2rtc-live::after { content: '\25CF'; position: absolute; left: 8px; top: 4px; color: #e33; font-size: 14px; }
+	.g2-preview-sound { position: absolute; right: 6px; top: 6px; z-index: 1; width: 32px; height: 32px; border: 0; border-radius: 16px;
+		background: rgba(0,0,0,.5); color: #fff; font-size: 16px; line-height: 1; padding: 0; cursor: pointer; }
 	.g2-camera-preview img, .g2-camera-preview video { width: 100%; height: 100%; object-fit: contain; }
 	.g2-camera-preview.go2rtc-off img { opacity: .35; }
 	.g2-camera-preview.go2rtc-off::after { content: attr(data-off); position: absolute; color: #ddd; }
@@ -114,7 +122,33 @@
 		try { document.execCommand('copy'); } catch (e) {}
 		if (navigator.clipboard) navigator.clipboard.writeText(input.value).catch(function () {});
 	}
-	// адрес кадра — из атрибута: там &amp; браузер раскодирует, в тексте скрипта — нет
-	var g2Preview = document.getElementById('g2_preview');
-	go2rtcViewer(g2Preview, {frame: g2Preview.getAttribute('data-frame'), width: 640, interval: 3000, wait: [#WAIT#] || 6});
+	// превью: снимки; нажатие — живое видео (ещё раз — снова снимки); 🔇 — звук (на снимках — сразу видео со звуком).
+	// адреса — из атрибутов: там &amp; браузер раскодирует, в тексте скрипта — нет
+	(function () {
+		var box = document.getElementById('g2_preview'), snd = document.getElementById('g2_preview_sound');
+		var direct = '[#DIRECT#]', player = '<#ROOTHTML#>templates/go2rtc/js/video-rtc.js', wait = [#WAIT#] || 6;
+		var view = null, live = false;
+		var texts = {on: '<#LANG_GO2RTC_SOUND_ON#>', off: '<#LANG_GO2RTC_SOUND_OFF#>'};
+		function icon(m) {
+			if (!snd) return;
+			snd.textContent = m ? '🔇' : '🔊';
+			snd.title = m ? texts.on : texts.off;
+		}
+		function start(isLive, withSound) {
+			var poster = go2rtcViewer.capture(box);   // прошлый кадр — без чёрного экрана
+			if (view) view.stop();
+			box.innerHTML = '';
+			live = isLive;
+			icon(!withSound);
+			view = go2rtcViewer(box, {poster: poster, frame: box.getAttribute('data-frame'), width: 640, interval: 3000, wait: wait,
+				live: isLive, whep: box.getAttribute('data-whep'), audio: !!snd, muted: !withSound, onmute: icon,
+				direct: direct ? {base: direct, src: box.getAttribute('data-name')} : null, player: player});
+		}
+		box.addEventListener('click', function () { start(!live); });
+		if (snd) snd.addEventListener('click', function () {
+			if (live && view) view.mute(!view.mute());
+			else start(true, true);
+		});
+		start(false);
+	})();
 </script>

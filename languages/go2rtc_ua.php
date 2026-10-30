@@ -106,6 +106,7 @@ $dictionary = array(
 	'GO2RTC_TAB_CAMERAS'           => 'Камери',
 	'GO2RTC_TAB_LINKS'             => 'Посилання',
 	'GO2RTC_TAB_SETTINGS'          => 'Налаштування',
+	'GO2RTC_TILE_SIZE'             => 'Розмір',
 	'GO2RTC_TITLE'                 => 'Камери (go2rtc)',
 	'GO2RTC_URL'                   => 'Адреса go2rtc для сервера',
 	'GO2RTC_URL_HELP'              => 'Порожньо — камер немає. На тій самій машині, що MajorDoMo, — http://127.0.0.1:1984 (з самої машини go2rtc пароль не питає, якщо не ввімкнено local_auth).',
