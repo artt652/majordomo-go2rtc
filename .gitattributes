@@ -1,3 +1,0 @@
-# Не попадают в архив GitHub, из которого ставится модуль (файлы архива распаковываются в корень MajorDoMo)
-README.md export-ignore
-.gitattributes export-ignore
