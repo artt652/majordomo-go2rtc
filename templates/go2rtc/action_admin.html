@@ -528,9 +528,6 @@
 		}
 		Array.prototype.forEach.call(document.querySelectorAll('.g2-mode'), function (r) { r.addEventListener('change', modeFields); });
 		modeFields();
-		// файл данных включили — API из сети сразу с паролем (иначе /api/config открыт сети)
-		var g2file = document.getElementById('g2_file'), g2auth = document.getElementById('g2_api_auth');
-		if (g2file && g2auth) g2file.addEventListener('change', function () { if (g2file.checked) g2auth.checked = true; });
 
 		var start = '[#TAB#]' || (location.hash || '').substr(1);
 		show(start && document.getElementById(start) ? start : 'tab_cameras');
