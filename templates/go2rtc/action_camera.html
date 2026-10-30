@@ -22,6 +22,19 @@
 		[#if CAMERA_AUDIO="1"#]<button type="button" class="g2-preview-sound" id="g2_preview_sound" title="<#LANG_GO2RTC_SOUND_ON#>">🔇</button>[#endif CAMERA_AUDIO#]
 	</div>
 	<p class="help-block"><#LANG_GO2RTC_STREAM#>: <code>[#CAMERA_NAME#]</code>[#if CAMERA_CHECKED!=""#] · [#if CAMERA_ONLINE="1"#]<#LANG_GO2RTC_ONLINE#>[#else CAMERA_ONLINE#]<#LANG_GO2RTC_OFFLINE#>[#endif CAMERA_ONLINE#] ([#CAMERA_CHECKED#])[#endif CAMERA_CHECKED#]</p>
+	<!-- проба: go2rtc подключается к источнику и показывает кодеки, звук и микрофон -->
+	<form action="?" method="post" style="margin-bottom:10px">
+		<input type="hidden" name="camera_id" value="[#CAMERA_ID#]">
+		<button type="submit" name="camera_probe" value="1" class="btn btn-default btn-sm" title="<#LANG_GO2RTC_PROBE_HELP#>"><#LANG_GO2RTC_PROBE#></button>
+	</form>
+	[#begin PROBE#]
+	<div class="alert [#if OK="1"#]alert-info[#else OK#]alert-danger[#endif OK#]" style="padding:8px 10px">
+		<b><#LANG_GO2RTC_PROBE#>: [#NAME#]</b>
+		[#if OK="1"#]<pre style="white-space:pre-wrap;word-break:break-all;margin:6px 0 0;font-size:12px">[#TEXT#]</pre>
+		<details style="margin-top:6px"><summary>JSON</summary><pre style="max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-all;font-size:11px">[#JSON#]</pre></details>
+		[#else OK#]<pre style="white-space:pre-wrap;word-break:break-all;margin:6px 0 0;font-size:12px">[#ERROR#]</pre>[#endif OK#]
+	</div>
+	[#end PROBE#]
 </div>
 [#endif CAMERA_NEW#]
 <div class="col-md-8[#if CAMERA_NEW!="1"#] col-md-pull-4[#endif#]">
