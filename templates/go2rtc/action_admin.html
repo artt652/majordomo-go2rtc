@@ -50,6 +50,8 @@
 
 <!-- камеры: снимки плитками; нажатие — живое видео в плитке (ещё раз — снова снимки), ⛶ — на весь экран, ⤴ — поделиться -->
 <div class="tab-pane active" id="tab_cameras">
+[#if CAMERA_DELETED="1"#]<div class="alert alert-success"><#LANG_GO2RTC_LOCAL_DELETED#></div>[#endif CAMERA_DELETED#]
+[#if LOCAL="1"#]<p><a href="?camera_id=new" class="btn btn-default">+ <#LANG_GO2RTC_LOCAL_ADD#></a></p>[#endif LOCAL#]
 [#if ENABLED!="1"#]<p class="help-block"><#LANG_GO2RTC_NOT_SET#></p>[#endif ENABLED#]
 [#if ENABLED="1"#][#if HAS_CAMERAS!="1"#]<p class="help-block"><#LANG_GO2RTC_NO_CAMERAS#></p>[#endif HAS_CAMERAS#][#endif ENABLED#]
 [#if HAS_CAMERAS="1"#]<div class="g2-size"><label for="g2_size" style="margin:0;font-weight:normal"><#LANG_GO2RTC_TILE_SIZE#></label>
@@ -73,8 +75,65 @@
 
 <div class="tab-pane" id="tab_settings">
 [#if GO2RTC_SAVED="1"#]<div class="alert alert-success"><#LANG_DATA_SAVED#></div>[#endif GO2RTC_SAVED#]
-<p class="help-block"><#LANG_GO2RTC_HELP#></p>
+[#if LOCAL="1"#]
+<!-- встроенный go2rtc: состояние и управление (запуск и остановку выполняет цикл cycle_go2rtc) -->
+<div class="panel panel-default">
+	<div class="panel-heading"><b><#LANG_GO2RTC_LOCAL_TITLE#></b></div>
+	<div class="panel-body">
+		[#if LOCAL_PLATFORM_ERROR!=""#]<div class="alert alert-danger"><#LANG_GO2RTC_LOCAL_PLATFORM#>: [#LOCAL_PLATFORM_ERROR#]</div>[#endif LOCAL_PLATFORM_ERROR#]
+		<p>
+			<#LANG_GO2RTC_LOCAL_PROGRAM#>: [#if LOCAL_INSTALLED!=""#]<b>go2rtc [#LOCAL_INSTALLED#]</b> ([#LOCAL_ASSET#])[#if LOCAL_UPDATE="1"#] · <#LANG_GO2RTC_LOCAL_UPDATE#> [#LOCAL_VERSION#][#endif LOCAL_UPDATE#][#else LOCAL_INSTALLED#]<span class="text-danger"><#LANG_GO2RTC_LOCAL_NOT_INSTALLED#></span>[#endif LOCAL_INSTALLED#]<br>
+			<#LANG_GO2RTC_LOCAL_STATE#>: [#if LOCAL_RUNNING!=""#]<span class="text-success"><#LANG_GO2RTC_LOCAL_RUNNING#></span>[#if LOCAL_PID!="0"#] (PID [#LOCAL_PID#])[#endif LOCAL_PID#][#else LOCAL_RUNNING#]<span class="text-danger"><#LANG_GO2RTC_LOCAL_STOPPED#></span>[#endif LOCAL_RUNNING#][#if LOCAL_ERROR!=""#] · <span class="text-danger">[#LOCAL_ERROR#]</span>[#endif LOCAL_ERROR#]<br>
+			ffmpeg: [#if LOCAL_FFMPEG_VERSION!=""#][#LOCAL_FFMPEG_VERSION#] (<code>[#LOCAL_FFMPEG#]</code>)[#else LOCAL_FFMPEG_VERSION#]<span class="text-warning"><#LANG_GO2RTC_LOCAL_NO_FFMPEG#></span>[#endif LOCAL_FFMPEG_VERSION#]
+		</p>
+		[#if LOCAL_CYCLE!="1"#]<div class="alert alert-warning"><#LANG_GO2RTC_LOCAL_NO_CYCLE#></div>[#endif LOCAL_CYCLE#]
+		[#if LOCAL_ACTION!=""#]<div class="alert alert-info"><#LANG_GO2RTC_LOCAL_ACTION_SENT#></div>[#endif LOCAL_ACTION#]
+		[#if LOCAL_LOG!=""#]<pre style="max-height:220px;overflow:auto;white-space:pre-wrap">[#LOCAL_LOG#]</pre>[#endif LOCAL_LOG#]
+		<form action="?" method="post" class="g2-local-buttons">
+			<button type="submit" name="local_install" value="1" class="btn btn-default">[#if LOCAL_INSTALLED!=""#]<#LANG_GO2RTC_LOCAL_REINSTALL#>[#else LOCAL_INSTALLED#]<#LANG_GO2RTC_LOCAL_INSTALL#>[#endif LOCAL_INSTALLED#] [#LOCAL_VERSION#]</button>
+			[#if LOCAL_INSTALLED!=""#]
+			<button type="submit" name="local_start" value="1" class="btn btn-default"><#LANG_GO2RTC_LOCAL_START#></button>
+			<button type="submit" name="local_restart" value="1" class="btn btn-default"><#LANG_GO2RTC_LOCAL_RESTART#></button>
+			<button type="submit" name="local_stop" value="1" class="btn btn-default"><#LANG_GO2RTC_LOCAL_STOP#></button>
+			[#endif LOCAL_INSTALLED#]
+			<input type="hidden" name="tab" value="tab_settings">
+		</form>
+		[#if LOCAL_LOG_TAIL!=""#]<details style="margin-top:10px"><summary><#LANG_GO2RTC_LOCAL_LOG#></summary><pre style="max-height:300px;overflow:auto;white-space:pre-wrap;font-size:12px">[#LOCAL_LOG_TAIL#]</pre></details>[#endif LOCAL_LOG_TAIL#]
+	</div>
+</div>
+[#endif LOCAL#]
+[#if LOCAL!="1"#]<p class="help-block"><#LANG_GO2RTC_HELP#></p>[#endif LOCAL#]
 <form action="?" method="post" class="form-horizontal">
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label">go2rtc:</label>
+	<div class="col-sm-8 col-md-6">
+		<div class="radio"><label><input type="radio" name="go2rtc_mode" value="" class="g2-mode"[#if LOCAL!="1"#] checked[#endif#]> <#LANG_GO2RTC_MODE_EXTERNAL#></label></div>
+		<div class="radio"><label><input type="radio" name="go2rtc_mode" value="local" class="g2-mode"[#if LOCAL="1"#] checked[#endif#]> <#LANG_GO2RTC_MODE_LOCAL#></label></div>
+		<p class="help-block"><#LANG_GO2RTC_MODE_HELP#></p>
+	</div>
+</div>
+<div id="g2_local_fields">
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_LOCAL_PORTS#>:</label>
+	<div class="col-sm-8 col-md-6">
+		<div class="row g2-pair">
+			<div class="col-sm-4"><input type="number" min="1024" max="65535" name="go2rtc_api_port" class="form-control" value="[#GO2RTC_API_PORT#]" placeholder="1984" title="API"></div>
+			<div class="col-sm-4"><input type="number" min="1024" max="65535" name="go2rtc_webrtc_port" class="form-control" value="[#GO2RTC_WEBRTC_PORT#]" placeholder="8555" title="WebRTC"></div>
+		</div>
+		<p class="help-block"><#LANG_GO2RTC_LOCAL_PORTS_HELP#></p>
+		<div class="checkbox"><label><input type="checkbox" name="go2rtc_api_lan" value="1"[#if GO2RTC_API_LAN="1"#] checked[#endif#]> <#LANG_GO2RTC_LOCAL_API_LAN#></label></div>
+		<p class="help-block"><#LANG_GO2RTC_LOCAL_API_LAN_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label">ffmpeg:</label>
+	<div class="col-sm-8 col-md-6">
+		<input type="text" name="go2rtc_ffmpeg" class="form-control" value="[#GO2RTC_FFMPEG#]" placeholder="ffmpeg">
+		<p class="help-block"><#LANG_GO2RTC_LOCAL_FFMPEG_HELP#></p>
+	</div>
+</div>
+</div>
+<div id="g2_external_fields">
 <div class="form-group">
 	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_URL#>:</label>
 	<div class="col-sm-8 col-md-6">
@@ -92,6 +151,7 @@
 		</div>
 		<p class="help-block"><#LANG_GO2RTC_API_LOGIN_HELP#></p>
 	</div>
+</div>
 </div>
 <div class="form-group">
 	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_DEVICE_URL#>:</label>
@@ -396,6 +456,17 @@
 		document.getElementById('g2_live_close').addEventListener('click', closeLive);
 		liveSound.addEventListener('click', function () { if (liveView) liveView.mute(!liveView.mute()); });
 		document.addEventListener('keydown', function (e) { if (e.key == 'Escape' && liveView) closeLive(); });
+
+		// настройки: поля встроенного или внешнего go2rtc — по выбранному режиму
+		function modeFields() {
+			var local = document.querySelector('.g2-mode[value=local]');
+			var on = local && local.checked;
+			var lf = document.getElementById('g2_local_fields'), ef = document.getElementById('g2_external_fields');
+			if (lf) lf.style.display = on ? '' : 'none';
+			if (ef) ef.style.display = on ? 'none' : '';
+		}
+		Array.prototype.forEach.call(document.querySelectorAll('.g2-mode'), function (r) { r.addEventListener('change', modeFields); });
+		modeFields();
 
 		var start = '[#TAB#]' || (location.hash || '').substr(1);
 		show(start && document.getElementById(start) ? start : 'tab_cameras');

@@ -119,10 +119,16 @@ function go2rtcConfig()
     $get = function ($key, $default = '') use ($config) {
         return (isset($config[$key]) && $config[$key] !== '') ? (string)$config[$key] : $default;
     };
+    // встроенный go2rtc (go2rtc_local.inc.php): API на этой машине, без пароля
+    $local = isset($config['GO2RTC_MODE']) && $config['GO2RTC_MODE'] == 'local';
+    $api_port = (int)$get('GO2RTC_API_PORT', '1984');
+    $api_port = ($api_port >= 1024 && $api_port <= 65535) ? $api_port : 1984;
     return array(
-        'url' => rtrim($get('GO2RTC_URL'), '/'),
-        'user' => $get('GO2RTC_USER'),
-        'password' => $get('GO2RTC_PASSWORD'),
+        'url' => $local ? 'http://127.0.0.1:' . $api_port : rtrim($get('GO2RTC_URL'), '/'),
+        'user' => $local ? '' : $get('GO2RTC_USER'),
+        'password' => $local ? '' : $get('GO2RTC_PASSWORD'),
+        'local' => $local,
+        'api_lan' => $get('GO2RTC_API_LAN', '1') == '1',
         'device_url' => rtrim($get('GO2RTC_DEVICE_URL'), '/'),
         'rtsp_port' => (int)$get('GO2RTC_RTSP_PORT', '8554'),
         'rtsp_user' => $get('GO2RTC_RTSP_USER'),
@@ -819,10 +825,20 @@ function go2rtcCamerasSync()
     foreach (SQLSelect("SELECT ID, NAME, MISSING FROM go2rtc_cameras") as $row) {
         $rows[$row['NAME']] = $row;
     }
+    // встроенный go2rtc: второй поток камеры модуля (имя_hq) — не отдельная камера
+    $skip = array();
+    if (go2rtcLocal()) {
+        foreach (SQLSelect("SELECT NAME FROM go2rtc_cameras WHERE LOCAL=1 AND SOURCE_HQ!=''") as $row) {
+            $skip[$row['NAME'] . '_hq'] = true;
+        }
+    }
     $max = SQLSelectOne("SELECT MAX(PRIORITY) AS P FROM go2rtc_cameras");
     $priority = !empty($max['P']) ? (int)$max['P'] : 0;
     $added = 0;
     foreach ($streams as $name) {
+        if (isset($skip[$name]) || strpos($name, '__test_') === 0) {
+            continue;
+        }
         if (!isset($rows[$name])) {
             $priority += 10;
             $rec = array('NAME' => $name, 'TITLE' => $name, 'PRIORITY' => $priority, 'HIDDEN' => 0, 'MISSING' => 0, 'ADDED' => time());
@@ -1005,6 +1021,9 @@ function go2rtcDirectBase()
     if ($cfg['url'] == '' || $cfg['user'] != '' || $cfg['password'] != '') {
         return '';
     }
+    if ($cfg['local'] && !$cfg['api_lan']) {
+        return ''; // встроенный go2rtc слушает только 127.0.0.1 — браузеру его не видно
+    }
     return go2rtcDeviceBase();
 }
 
@@ -1015,3 +1034,6 @@ function go2rtcEmbedUrl($name, $exp, $mode = 'live', $absolute = false)
     return ($absolute ? go2rtcServerBase() : '') . ROOTHTML . 'api.php/module/go2rtc/embed?src=' . rawurlencode($name) . '&exp=' . (int)$exp
         . '&sig=' . go2rtcSign($name, (int)$exp) . ($mode == 'snapshot' ? '&mode=snapshot' : '');
 }
+
+// встроенный go2rtc: установка, запуск, камеры модуля
+include_once(dirname(__FILE__) . '/go2rtc_local.inc.php');
