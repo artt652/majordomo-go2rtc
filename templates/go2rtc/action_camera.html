@@ -38,7 +38,7 @@
 </div>
 [#endif CAMERA_NEW#]
 <div class="col-md-8[#if CAMERA_NEW!="1"#] col-md-pull-4[#endif#]">
-<form action="?" method="post" class="form-horizontal" name="frmCamera">
+<form action="?" method="post" class="form-horizontal g2-form" name="frmCamera">
 [#if CAMERA_LOCAL="1"#]
 <!-- камера встроенного go2rtc: источник -->
 <h4 style="margin-top:0"><#LANG_GO2RTC_LOCAL_SOURCE#></h4>
@@ -175,6 +175,12 @@
 </div></div>
 [#endif CAMERA_NEW#]
 <style>
+	/* admin.css панели задаёт меткам формы float и ширину 240 px — на телефоне метка наезжает на поле: ставим её над полем */
+	@media (max-width: 767px) {
+		.g2-form .control-label { float: none; width: auto; text-align: left; padding: 0 15px 5px; }
+	}
+	/* и обнуляет поля .row — поля в паре (логин и пароль) съезжали внутрь */
+	.g2-form .g2-pair { margin-left: -15px; margin-right: -15px; }
 	.g2-num { max-width: 140px; }
 	.g2-preview-wrap { position: relative; }
 	.g2-camera-preview { background: #111; border-radius: 6px; overflow: hidden; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
