@@ -5,6 +5,7 @@
 </ul>
 [#if CAMERA_ERROR!=""#]<div class="alert alert-danger">[#CAMERA_ERROR#]</div>[#endif CAMERA_ERROR#]
 [#if CAMERA_RESTART="1"#]<div class="alert alert-info"><#LANG_GO2RTC_LOCAL_RESTART_NOTE#></div>[#endif CAMERA_RESTART#]
+[#if CAMERA_RESTART="2"#]<div class="alert alert-info"><#LANG_GO2RTC_LOCAL_RESTART_FILE#></div>[#endif CAMERA_RESTART#]
 [#if TEST_DONE="1"#]
 <div class="alert [#if TEST_OK="1"#]alert-success[#else TEST_OK#]alert-danger[#endif TEST_OK#]">
 	[#if TEST_OK="1"#]<#LANG_GO2RTC_LOCAL_TEST_OK#><br><img src="data:image/jpeg;base64,[#TEST_IMAGE#]" alt="" style="max-width:100%;max-height:240px;margin-top:8px;border-radius:4px">[#else TEST_OK#]<#LANG_GO2RTC_LOCAL_TEST_FAIL#>: <pre style="white-space:pre-wrap;margin:6px 0 0">[#TEST_ERROR#]</pre>[#endif TEST_OK#]
