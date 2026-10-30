@@ -4,6 +4,7 @@
 	/* admin.css панели задаёт меткам формы float и ширину 240 px — на телефоне метка наезжает на поле: ставим её над полем */
 	@media (max-width: 767px) {
 		.g2-form .control-label { float: none; width: auto; text-align: left; padding: 0 15px 5px; }
+		.g2-form .g2-empty { display: none; }
 	}
 	/* и обнуляет поля .row — поля в паре (логин и пароль) съезжали внутрь */
 	.g2-form .g2-pair { margin-left: -15px; margin-right: -15px; }
@@ -144,9 +145,24 @@
 			<div class="col-sm-4"><input type="number" min="1024" max="65535" name="go2rtc_webrtc_port" class="form-control" value="[#GO2RTC_WEBRTC_PORT#]" placeholder="8555" title="WebRTC"></div>
 		</div>
 		<p class="help-block"><#LANG_GO2RTC_LOCAL_PORTS_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label g2-empty">&nbsp;</label>
+	<div class="col-sm-8 col-md-6">
 		<div class="checkbox"><label><input type="checkbox" name="go2rtc_api_lan" value="1"[#if GO2RTC_API_LAN="1"#] checked[#endif#]> <#LANG_GO2RTC_LOCAL_API_LAN#></label></div>
 		<p class="help-block"><#LANG_GO2RTC_LOCAL_API_LAN_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label g2-empty">&nbsp;</label>
+	<div class="col-sm-8 col-md-6">
 		<div class="checkbox"><label><input type="checkbox" name="go2rtc_api_auth" value="1" id="g2_api_auth"[#if GO2RTC_API_AUTH="1"#] checked[#endif#]> <#LANG_GO2RTC_LOCAL_API_AUTH#></label></div>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_LOCAL_API_LOGIN#>:</label>
+	<div class="col-sm-8 col-md-6">
 		<div class="row g2-pair">
 			<div class="col-sm-6"><input type="text" name="go2rtc_api_local_user" class="form-control" value="[#GO2RTC_API_LOCAL_USER#]" autocomplete="off" placeholder="admin"></div>
 			<div class="col-sm-6"><input type="text" name="go2rtc_api_local_password" class="form-control" value="[#GO2RTC_API_LOCAL_PASSWORD#]" autocomplete="off" placeholder="<#LANG_GO2RTC_LOCAL_API_PASSWORD_AUTO#>"></div>
@@ -159,6 +175,11 @@
 	<div class="col-sm-8 col-md-6">
 		[#if LOCAL_FILE_PATH_BAD="1"#]<div class="alert alert-danger"><#LANG_GO2RTC_LOCAL_FILE_PATH_BAD#></div>[#endif LOCAL_FILE_PATH_BAD#]
 		<div class="checkbox"><label><input type="checkbox" name="go2rtc_file" value="1" id="g2_file"[#if GO2RTC_FILE="1"#] checked[#endif#]> <#LANG_GO2RTC_LOCAL_FILE_ON#></label></div>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_LOCAL_FILE_PATH#>:</label>
+	<div class="col-sm-8 col-md-6">
 		<input type="text" name="go2rtc_file_path" class="form-control" value="[#GO2RTC_FILE_PATH#]" placeholder="[#GO2RTC_FILE_DEFAULT#]">
 		<p class="help-block"><#LANG_GO2RTC_LOCAL_FILE_HELP#></p>
 	</div>
@@ -217,7 +238,8 @@
 	</div>
 </div>
 <div class="form-group">
-	<div class="col-sm-offset-4 col-md-offset-3 col-sm-8 col-md-6">
+	<label class="col-sm-4 col-md-3 control-label g2-empty">&nbsp;</label>
+	<div class="col-sm-8 col-md-6">
 		<div class="checkbox"><label><input type="checkbox" name="go2rtc_webtorrent" value="1"[#if GO2RTC_WEBTORRENT="1"#] checked[#endif#]> <#LANG_GO2RTC_WEBTORRENT#></label></div>
 		<p class="help-block"><#LANG_GO2RTC_WEBTORRENT_HELP#></p>
 	</div>
@@ -227,7 +249,8 @@
 	<div class="col-sm-8 col-md-6"><input type="number" min="1" max="1440" name="go2rtc_wt_minutes" class="form-control g2-num" value="[#GO2RTC_WT_MINUTES#]" placeholder="10"></div>
 </div>
 <div class="form-group">
-	<div class="col-sm-offset-4 col-md-offset-3 col-sm-8 col-md-6"><button type="submit" class="btn btn-primary"><#LANG_GO2RTC_SAVE#></button></div>
+	<label class="col-sm-4 col-md-3 control-label g2-empty">&nbsp;</label>
+	<div class="col-sm-8 col-md-6"><button type="submit" class="btn btn-primary"><#LANG_GO2RTC_SAVE#></button></div>
 </div>
 <input type="hidden" name="go2rtc_save" value="1">
 </form>
