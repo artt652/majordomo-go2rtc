@@ -318,6 +318,57 @@ function go2rtcSignedUrl($op, $name, $exp, $absolute = false)
     return ($absolute ? go2rtcServerBase() : '') . $path;
 }
 
+// Проба потока (как «probe» в веб-интерфейсе go2rtc): go2rtc подключается к источнику и показывает, что тот отдаёт.
+// Возвращает array('ok', 'error', 'text' — по-человечески, 'json' — ответ go2rtc); пароли в адресах — ***
+function go2rtcProbe($name)
+{
+    $cfg = go2rtcConfig();
+    $body = go2rtcRequest('GET', 'api/streams', array('src' => $name, 'video' => 'all', 'audio' => 'all', 'microphone' => ''),
+        null, '', $code, max(8, $cfg['wait'] + 4));
+    $data = json_decode((string)$body, true);
+    if ($code != 200 || !is_array($data) || empty($data['producers'])) {
+        $text = trim(strip_tags((string)$body));
+        return array('ok' => false, 'error' => go2rtcLogSafe($text != '' ? $text : 'HTTP ' . $code), 'text' => '', 'json' => '');
+    }
+    $codec = function ($c) {
+        $s = strtoupper(isset($c['codec_name']) ? $c['codec_name'] : '?');
+        $more = array();
+        if (!empty($c['profile'])) {
+            $more[] = $c['profile'];
+        }
+        if (!empty($c['level'])) {
+            $more[] = 'level ' . $c['level'];
+        }
+        if (!empty($c['sample_rate'])) {
+            $more[] = $c['sample_rate'] . ' Hz';
+        }
+        if (!empty($c['channels'])) {
+            $more[] = $c['channels'] . ' ch';
+        }
+        return $s . ($more ? ' (' . implode(', ', $more) . ')' : '');
+    };
+    $lines = array();
+    foreach ($data['producers'] as $p) {
+        $src = !empty($p['url']) ? $p['url'] : (!empty($p['source']) ? $p['source'] : '');
+        $lines[] = trim((isset($p['format_name']) ? $p['format_name'] : '') . (!empty($p['protocol']) ? ' · ' . $p['protocol'] : '')
+            . ($src != '' ? ' · ' . $src : ''), ' ·');
+        foreach (!empty($p['receivers']) ? $p['receivers'] : array() as $r) {
+            if (!empty($r['codec'])) {
+                $kind = (isset($r['codec']['codec_type']) && $r['codec']['codec_type'] == 'audio') ? 'GO2RTC_PROBE_AUDIO' : 'GO2RTC_PROBE_VIDEO';
+                $lines[] = '  ' . go2rtcLang($kind) . ': ' . $codec($r['codec']);
+            }
+        }
+        // аудио «sendonly» у источника — камера принимает звук (двусторонняя связь)
+        foreach (!empty($p['medias']) ? $p['medias'] : array() as $m) {
+            if (preg_match('/^audio,\s*sendonly,\s*(.+)$/i', $m, $mm)) {
+                $lines[] = '  ' . go2rtcLang('GO2RTC_PROBE_MIC') . ': ' . $mm[1];
+            }
+        }
+    }
+    return array('ok' => true, 'error' => '', 'text' => go2rtcLogSafe(implode("\n", $lines)),
+        'json' => go2rtcLogSafe(json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)));
+}
+
 // Снимок потока (JPEG) или пустая строка; $width — ширина (0 — как у камеры). cache — не дёргать камеру чаще раза в 5 с
 function go2rtcFrame($name, $width = 0)
 {

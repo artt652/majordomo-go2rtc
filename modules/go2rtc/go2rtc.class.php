@@ -437,6 +437,15 @@ class go2rtc extends module
             }
         }
         $out['CAMERA_AUDIO'] = isset($camera['AUDIO']) ? (int)$camera['AUDIO'] : 1;
+        // проба: что отдаёт источник (кодеки, звук, микрофон) — основной поток и поток высокого качества
+        if ($id && gr('camera_probe')) {
+            $out['PROBE'] = array();
+            foreach (array_unique(array_filter(array($camera['NAME'], $camera['HQ_NAME']))) as $name) {
+                $probe = go2rtcHas($name) ? go2rtcProbe($name) : array('ok' => false, 'error' => go2rtcLang('GO2RTC_CAM_OFFLINE'), 'text' => '', 'json' => '');
+                $out['PROBE'][] = array('NAME' => $h($name), 'OK' => $probe['ok'] ? 1 : 0, 'ERROR' => $h($probe['error']),
+                    'TEXT' => $h($probe['text']), 'JSON' => $h($probe['json']));
+            }
+        }
         $out['CAMERA_LOCAL'] = $is_local ? 1 : 0;
         $out['CAMERA_NEW'] = $id ? 0 : 1;
         foreach (array('SOURCE', 'SOURCE_USER', 'SOURCE_HQ') as $field) {
