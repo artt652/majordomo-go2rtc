@@ -97,12 +97,12 @@
 		</p>
 		[#if LOCAL_OPEN_FILE="1"#]<div class="alert alert-danger"><#LANG_GO2RTC_LOCAL_OPEN_FILE#></div>[#endif LOCAL_OPEN_FILE#]
 		[#if LOCAL_WEB_UI!=""#]<p><#LANG_GO2RTC_LOCAL_WEB_UI#>: <a href="[#LOCAL_WEB_UI#]" target="_blank" rel="noopener">[#LOCAL_WEB_UI#]</a>[#if LOCAL_LOCKED="1"#] · <#LANG_GO2RTC_LOGIN#> <code>[#GO2RTC_API_LOCAL_USER#]</code>, <#LANG_GO2RTC_PASSWORD#> <code>[#GO2RTC_API_LOCAL_PASSWORD#]</code>[#endif LOCAL_LOCKED#]</p>[#endif LOCAL_WEB_UI#]
-		[#if LOCAL_FILE!=""#]<p><#LANG_GO2RTC_LOCAL_FILE#>: <code>[#LOCAL_FILE#]</code> ([#LOCAL_FILE_SIZE#] B)[#if LOCAL_FILE_STREAMS!=""#]<br><#LANG_GO2RTC_LOCAL_FILE_STREAMS#>: [#LOCAL_FILE_STREAMS#][#endif LOCAL_FILE_STREAMS#]</p>[#endif LOCAL_FILE#]
+		[#if LOCAL_FILE!=""#]<p><#LANG_GO2RTC_LOCAL_FILE#>: <code style="word-break:break-all;white-space:normal">[#LOCAL_FILE#]</code> ([#LOCAL_FILE_SIZE#] B)[#if LOCAL_FILE_STREAMS!=""#]<br><#LANG_GO2RTC_LOCAL_FILE_STREAMS#>: [#LOCAL_FILE_STREAMS#][#endif LOCAL_FILE_STREAMS#]</p>[#endif LOCAL_FILE#]
 		[#if LOCAL_IMPORTED="1"#]<div class="alert alert-success"><#LANG_GO2RTC_LOCAL_IMPORTED#></div>[#endif LOCAL_IMPORTED#]
 		[#if LOCAL_IMPORT_ERROR!=""#]<div class="alert alert-danger">[#LOCAL_IMPORT_ERROR#]</div>[#endif LOCAL_IMPORT_ERROR#]
 		[#if LOCAL_CYCLE!="1"#]<div class="alert alert-warning"><#LANG_GO2RTC_LOCAL_NO_CYCLE#></div>[#endif LOCAL_CYCLE#]
 		[#if LOCAL_ACTION!=""#]<div class="alert alert-info"><#LANG_GO2RTC_LOCAL_ACTION_SENT#></div>[#endif LOCAL_ACTION#]
-		[#if LOCAL_LOG!=""#]<pre style="max-height:220px;overflow:auto;white-space:pre-wrap">[#LOCAL_LOG#]</pre>[#endif LOCAL_LOG#]
+		[#if LOCAL_LOG!=""#]<pre style="max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all">[#LOCAL_LOG#]</pre>[#endif LOCAL_LOG#]
 		<form action="?" method="post" class="g2-local-buttons">
 			<button type="submit" name="local_install" value="1" class="btn btn-default">[#if LOCAL_INSTALLED!=""#]<#LANG_GO2RTC_LOCAL_REINSTALL#>[#else LOCAL_INSTALLED#]<#LANG_GO2RTC_LOCAL_INSTALL#>[#endif LOCAL_INSTALLED#] [#LOCAL_VERSION#]</button>
 			[#if LOCAL_INSTALLED!=""#]
@@ -115,14 +115,14 @@
 		<details style="margin-top:10px"[#if LOCAL_IMPORT_ERROR!=""#] open[#endif#]><summary><#LANG_GO2RTC_LOCAL_IMPORT#></summary>
 			<p class="help-block"><#LANG_GO2RTC_LOCAL_IMPORT_HELP#></p>
 			<form action="?" method="post" enctype="multipart/form-data">
-				<div class="form-group"><input type="file" name="import_file" accept=".yaml,.yml,.ini,.txt"></div>
-				<div class="form-group"><input type="text" name="import_path" class="form-control" placeholder="<#LANG_GO2RTC_LOCAL_IMPORT_PATH#>"></div>
+				<div class="form-group"><input type="file" name="import_file" accept=".yaml,.yml,.ini,.txt" style="max-width:100%"></div>
+				<div class="form-group"><label for="g2_import_path" style="font-weight:normal"><#LANG_GO2RTC_LOCAL_IMPORT_PATH#>:</label><input type="text" name="import_path" id="g2_import_path" class="form-control" placeholder="/etc/go2rtc/go2rtc.yaml"></div>
 				<button type="submit" name="local_import" value="file" class="btn btn-default"><#LANG_GO2RTC_LOCAL_IMPORT_DO#></button>
 				[#if LOCAL_HAS_EXTERNAL="1"#]<button type="submit" name="local_import" value="external" class="btn btn-default"><#LANG_GO2RTC_LOCAL_IMPORT_EXTERNAL#></button>[#endif LOCAL_HAS_EXTERNAL#]
 				<input type="hidden" name="tab" value="tab_settings">
 			</form>
 		</details>
-		[#if LOCAL_LOG_TAIL!=""#]<details style="margin-top:10px"><summary><#LANG_GO2RTC_LOCAL_LOG#></summary><pre style="max-height:300px;overflow:auto;white-space:pre-wrap;font-size:12px">[#LOCAL_LOG_TAIL#]</pre></details>[#endif LOCAL_LOG_TAIL#]
+		[#if LOCAL_LOG_TAIL!=""#]<details style="margin-top:10px"><summary><#LANG_GO2RTC_LOCAL_LOG#></summary><pre style="max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-all;font-size:12px">[#LOCAL_LOG_TAIL#]</pre></details>[#endif LOCAL_LOG_TAIL#]
 	</div>
 </div>
 [#endif LOCAL#]
@@ -180,7 +180,7 @@
 <div class="form-group">
 	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_LOCAL_FILE_PATH#>:</label>
 	<div class="col-sm-8 col-md-6">
-		<input type="text" name="go2rtc_file_path" class="form-control" value="[#GO2RTC_FILE_PATH#]" placeholder="[#GO2RTC_FILE_DEFAULT#]">
+		<input type="text" name="go2rtc_file_path" class="form-control" value="[#GO2RTC_FILE_PATH#]" placeholder="cms/go2rtc/go2rtc.yaml.php">
 		<p class="help-block"><#LANG_GO2RTC_LOCAL_FILE_HELP#></p>
 	</div>
 </div>
