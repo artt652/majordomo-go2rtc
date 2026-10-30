@@ -1,6 +1,12 @@
 <!-- Камеры (go2rtc) в панели управления: «Камеры» (просмотр), «Настройки», «Права», «Ссылки».
      Раскладка: метка над полем на телефоне, слева — с планшета; сетка камер — плитки по ширине экрана -->
 <style>
+	/* admin.css панели задаёт меткам формы float и ширину 240 px — на телефоне метка наезжает на поле: ставим её над полем */
+	@media (max-width: 767px) {
+		.g2-form .control-label { float: none; width: auto; text-align: left; padding: 0 15px 5px; }
+	}
+	/* и обнуляет поля .row — поля в паре (логин и пароль) съезжали внутрь */
+	.g2-form .g2-pair { margin-left: -15px; margin-right: -15px; }
 	@media (max-width: 767px) {
 		.g2-pair > div + div { margin-top: 6px; }
 	}
@@ -118,7 +124,7 @@
 </div>
 [#endif LOCAL#]
 [#if LOCAL!="1"#]<p class="help-block"><#LANG_GO2RTC_HELP#></p>[#endif LOCAL#]
-<form action="?" method="post" class="form-horizontal">
+<form action="?" method="post" class="form-horizontal g2-form">
 <div class="form-group">
 	<label class="col-sm-4 col-md-3 control-label">go2rtc:</label>
 	<div class="col-sm-8 col-md-6">
