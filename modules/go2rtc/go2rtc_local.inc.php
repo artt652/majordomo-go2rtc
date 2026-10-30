@@ -14,7 +14,7 @@
  *     GO2RTC_FILE_PATH — свой путь (пусто — cms/go2rtc/go2rtc.yaml.php). Файлы в папке сайта (данные, копии, журнал) —
  *     .php с первой строкой GO2RTC_LOCAL_GUARD: для go2rtc это комментарий YAML, а веб-сервер по ссылке выполнит
  *     её как PHP и отдаст «# » — не зависит от настроек веб-сервера (.htaccess и правила nginx есть не везде, в Docker);
- *   GO2RTC_API_AUTH — '1' (по умолчанию — когда включён файл): API из сети — с логином и паролем (GO2RTC_API_LOCAL_USER,
+ *   GO2RTC_API_AUTH — '1' (по умолчанию выключено, включает пользователь): API из сети — с логином и паролем (GO2RTC_API_LOCAL_USER,
  *     GO2RTC_API_LOCAL_PASSWORD — создаются сами); с самой машины модуль ходит без пароля (local_auth: false).
  *     Без пароля и с файлом — /api/config открыт сети: прочитать файл и записать в него exec: может любой.
  *
@@ -78,7 +78,7 @@ function go2rtcLocalSettings()
         'rtsp_password' => $get('GO2RTC_RTSP_PASSWORD'),
         'file' => $get('GO2RTC_FILE') == '1',
         'file_path' => $get('GO2RTC_FILE_PATH', go2rtcLocalDir() . '/go2rtc.yaml.php'),
-        'api_auth' => $get('GO2RTC_API_AUTH', $get('GO2RTC_FILE') == '1' ? '1' : '0') == '1',
+        'api_auth' => $get('GO2RTC_API_AUTH') == '1',
         'api_user' => $get('GO2RTC_API_LOCAL_USER', 'admin'),
         'api_password' => $get('GO2RTC_API_LOCAL_PASSWORD'),
     );
@@ -810,9 +810,6 @@ function go2rtcLocalImport($text, &$error = '')
         return false;
     }
     $config = go2rtcModuleConfig();
-    if (empty($config['GO2RTC_FILE'])) {
-        $config['GO2RTC_API_AUTH'] = '1'; // файл включается импортом — API из сети сразу с паролем (можно выключить)
-    }
     $config['GO2RTC_FILE'] = '1';
     go2rtcModuleConfigSave($config);
     DebMes('go2rtc: config imported into ' . $s['file_path'] . ' (' . strlen($text) . ' bytes)', 'go2rtc');
