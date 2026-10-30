@@ -11,7 +11,9 @@
  *   GO2RTC_FFMPEG — путь к ffmpeg (пусто — ffmpeg из PATH);
  *   GO2RTC_FILE — '1': данные go2rtc в файле (сопряжения HomeKit, облачные входы, потоки из веб-интерфейса go2rtc,
  *     preload) — файл идёт первым конфигом, строка модуля вторым (go2rtc объединяет, модуль побеждает);
- *     GO2RTC_FILE_PATH — свой путь (пусто — cms/go2rtc/go2rtc.ini: расширение .ini закрыто ядром от доступа по ссылке);
+ *     GO2RTC_FILE_PATH — свой путь (пусто — cms/go2rtc/go2rtc.yaml.php). Файлы в папке сайта (данные, копии, журнал) —
+ *     .php с первой строкой GO2RTC_LOCAL_GUARD: для go2rtc это комментарий YAML, а веб-сервер по ссылке выполнит
+ *     её как PHP и отдаст «# » — не зависит от настроек веб-сервера (.htaccess и правила nginx есть не везде, в Docker);
  *   GO2RTC_API_AUTH — '1' (по умолчанию — когда включён файл): API из сети — с логином и паролем (GO2RTC_API_LOCAL_USER,
  *     GO2RTC_API_LOCAL_PASSWORD — создаются сами); с самой машины модуль ходит без пароля (local_auth: false).
  *     Без пароля и с файлом — /api/config открыт сети: прочитать файл и записать в него exec: может любой.
@@ -28,6 +30,7 @@
  */
 
 define('GO2RTC_LOCAL_VERSION', 'v1.9.15');
+define('GO2RTC_LOCAL_GUARD', '# <?php exit; ?>');
 define('GO2RTC_ANDROID_RELEASE', 'v1.9.15-android4');
 
 // Файлы релизов и их sha256 (закреплены — новая версия go2rtc приходит с обновлением модуля)
@@ -74,7 +77,7 @@ function go2rtcLocalSettings()
         'rtsp_user' => $get('GO2RTC_RTSP_USER'),
         'rtsp_password' => $get('GO2RTC_RTSP_PASSWORD'),
         'file' => $get('GO2RTC_FILE') == '1',
-        'file_path' => $get('GO2RTC_FILE_PATH', go2rtcLocalDir() . '/go2rtc.ini'),
+        'file_path' => $get('GO2RTC_FILE_PATH', go2rtcLocalDir() . '/go2rtc.yaml.php'),
         'api_auth' => $get('GO2RTC_API_AUTH', $get('GO2RTC_FILE') == '1' ? '1' : '0') == '1',
         'api_user' => $get('GO2RTC_API_LOCAL_USER', 'admin'),
         'api_password' => $get('GO2RTC_API_LOCAL_PASSWORD'),
@@ -475,10 +478,16 @@ function go2rtcLocalCommand()
     $file = '';
     if ($s['file']) {
         // файл данных первым: в него go2rtc пишет сам (PatchConfig пишет в первый файловый конфиг)
+        $old = go2rtcLocalDir() . '/go2rtc.ini'; // путь по умолчанию первой версии: .ini отдают не все веб-серверы закрытым
+        if (!is_file($s['file_path']) && is_file($old) && $s['file_path'] == go2rtcLocalDir() . '/go2rtc.yaml.php') {
+            @file_put_contents($s['file_path'], go2rtcLocalGuard((string)@file_get_contents($old))) && @unlink($old);
+        }
         if (!is_file($s['file_path'])) {
             go2rtcLocalPrepareDir();
-            @file_put_contents($s['file_path'], "# go2rtc: data saved by go2rtc itself (HomeKit pairings, cloud logins, streams from its web UI)\n");
+            @file_put_contents($s['file_path'], (go2rtcLocalInSite($s['file_path']) ? GO2RTC_LOCAL_GUARD . "\n" : '')
+                . "# go2rtc: data saved by go2rtc itself (HomeKit pairings, cloud logins, streams from its web UI)\n");
         }
+        go2rtcLocalGuardFile($s['file_path']);
         $file = ' -config ' . go2rtcLocalArg($s['file_path']);
     }
     $cmd = (!empty($state['launch']) ? $state['launch'] . ' ' : '') . go2rtcLocalArg($bin) . $file . ' -config ' . go2rtcLocalArg(go2rtcLocalConfig());
@@ -540,9 +549,20 @@ function go2rtcLocalStart()
         }
     }
     $dir = go2rtcLocalDir();
-    $log = $dir . '/go2rtc.log';
+    $log = go2rtcLocalLogFile();
     if (is_file($log) && filesize($log) > 2 * 1024 * 1024) {
-        @rename($log, $log . '.1');
+        @rename($log, $dir . '/go2rtc.1.log.php');
+    }
+    if (!is_file($log)) {
+        @file_put_contents($log, GO2RTC_LOCAL_GUARD . "\n");
+    }
+    @unlink($dir . '/go2rtc.log'); // журнал прежних версий (.log отдают не все веб-серверы закрытым)
+    @unlink($dir . '/go2rtc.log.1');
+    foreach ((array)glob($dir . '/go2rtc.ini.*.bak') as $bak) {
+        // копии импорта первой версии — тоже в .php с заглушкой
+        if (@file_put_contents(substr($bak, 0, -4) . '.bak.php', go2rtcLocalGuard((string)@file_get_contents($bak))) !== false) {
+            @unlink($bak);
+        }
     }
     $spec = array(0 => array('file', go2rtcLocalWindows() ? 'NUL' : '/dev/null', 'r'), 1 => array('file', $log, 'a'), 2 => array('file', $log, 'a'));
     $env = null;
@@ -684,7 +704,7 @@ function go2rtcLocalTest($src)
     }
     $name = '__test_' . substr(md5(mt_rand() . microtime()), 0, 8);
     // ошибку источника go2rtc пишет в журнал (на кадр отвечает пустым 200) — запомнить, откуда читать
-    $log = go2rtcLocalDir() . '/go2rtc.log';
+    $log = go2rtcLocalLogFile();
     clearstatcache();
     $log_from = is_file($log) ? filesize($log) : 0;
     $error = go2rtcLocalPut($name, $src);
@@ -778,7 +798,12 @@ function go2rtcLocalImport($text, &$error = '')
     $s = go2rtcLocalSettings();
     go2rtcLocalPrepareDir();
     if (is_file($s['file_path'])) {
-        @copy($s['file_path'], $s['file_path'] . '.' . date('Ymd-His') . '.bak');
+        // копия рядом; расширение — прежнее (go2rtc.yaml.php → go2rtc.yaml.<дата>.bak.php — тоже не читается по ссылке)
+        $ext = preg_match('/\.php$/i', $s['file_path']) ? '.php' : '';
+        @copy($s['file_path'], substr($s['file_path'], 0, strlen($s['file_path']) - strlen($ext)) . '.' . date('Ymd-His') . '.bak' . $ext);
+    }
+    if (go2rtcLocalInSite($s['file_path'])) {
+        $text = go2rtcLocalGuard($text);
     }
     if (@file_put_contents($s['file_path'], $text) === false) {
         $error = 'cannot write ' . $s['file_path'];
@@ -795,15 +820,40 @@ function go2rtcLocalImport($text, &$error = '')
     return true;
 }
 
-// Свой путь к файлу данных: абсолютный; внутри сайта — только в cms/go2rtc (закрыта от доступа по ссылке)
+// Файл внутри папки сайта (его может отдать веб-сервер)
+function go2rtcLocalInSite($path)
+{
+    $root = str_replace('\\', '/', rtrim(ROOT, '/\\')) . '/';
+    return stripos(str_replace('\\', '/', (string)$path), $root) === 0;
+}
+
+// Первая строка-заглушка для файлов в папке сайта: в YAML — комментарий, по ссылке — PHP, который сразу выходит
+function go2rtcLocalGuard($text)
+{
+    $text = (string)$text;
+    return (strpos($text, GO2RTC_LOCAL_GUARD) === 0) ? $text : GO2RTC_LOCAL_GUARD . "\n" . $text;
+}
+
+// Заглушка в начале файла данных (её могли стереть в редакторе go2rtc) — перед запуском go2rtc
+function go2rtcLocalGuardFile($path)
+{
+    if (!go2rtcLocalInSite($path) || !is_file($path)) {
+        return;
+    }
+    $text = (string)@file_get_contents($path);
+    if (strpos($text, GO2RTC_LOCAL_GUARD) !== 0) {
+        @file_put_contents($path, go2rtcLocalGuard($text));
+    }
+}
+
+// Свой путь к файлу данных: абсолютный; внутри сайта — только cms/go2rtc/*.php (с заглушкой по ссылке не читается)
 function go2rtcLocalFilePathOk($path)
 {
     $path = str_replace('\\', '/', (string)$path);
     if (!preg_match('#^(/|[a-z]:/)#i', $path) || strpos($path, '..') !== false) {
         return false;
     }
-    $root = str_replace('\\', '/', rtrim(ROOT, '/\\')) . '/';
-    if (stripos($path, $root) === 0 && stripos($path, str_replace('\\', '/', go2rtcLocalDir()) . '/') !== 0) {
+    if (go2rtcLocalInSite($path) && (stripos($path, str_replace('\\', '/', go2rtcLocalDir()) . '/') !== 0 || !preg_match('/\.php$/i', $path))) {
         return false;
     }
     return true;
@@ -884,10 +934,16 @@ function go2rtcLocalStatus()
     );
 }
 
+// Журнал go2rtc: .php с заглушкой — по ссылке не читается
+function go2rtcLocalLogFile()
+{
+    return go2rtcLocalDir() . '/go2rtc.log.php';
+}
+
 // Последние строки журнала go2rtc
 function go2rtcLocalLog($lines = 40)
 {
-    $file = go2rtcLocalDir() . '/go2rtc.log';
+    $file = go2rtcLocalLogFile();
     if (!is_file($file)) {
         return '';
     }
@@ -899,6 +955,6 @@ function go2rtcLocalLog($lines = 40)
     fseek($fp, max(0, $size - 16384));
     $text = (string)fread($fp, 16384);
     fclose($fp);
-    $rows = explode("\n", trim($text));
+    $rows = explode("\n", trim(str_replace(GO2RTC_LOCAL_GUARD, '', $text)));
     return implode("\n", array_slice($rows, -$lines));
 }
