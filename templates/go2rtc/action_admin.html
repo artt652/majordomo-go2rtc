@@ -7,6 +7,8 @@
 	}
 	/* и обнуляет поля .row — поля в паре (логин и пароль) съезжали внутрь */
 	.g2-form .g2-pair { margin-left: -15px; margin-right: -15px; }
+	/* длинные пути (файл данных, ffmpeg, ссылки) — переносить по ширине экрана */
+	#tab_settings code, #tab_settings a { overflow-wrap: anywhere; word-break: break-word; }
 	@media (max-width: 767px) {
 		.g2-pair > div + div { margin-top: 6px; }
 	}
