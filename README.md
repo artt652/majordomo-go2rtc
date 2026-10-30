@@ -89,6 +89,7 @@ if (defined('GO2RTC_API') && go2rtcEnabled()) {
 | `templates/go2rtc/` | Панель (`action_admin.html`, `action_camera.html`), просмотрщик (`js/viewer.js`) |
 | `templates/go2rtc/js/video-rtc.js` | Плеер go2rtc без изменений (MIT, © AlexxIT), из `www/video-rtc.js` |
 | `languages/go2rtc_*.php` | Переводы (английский, русский, украинский) |
+| `img/modules/go2rtc.png` | Иконка модуля в панели управления |
 
 Журнал — `cms/debmes/<дата>/go2rtc.log`.
 
@@ -97,7 +98,7 @@ if (defined('GO2RTC_API') && go2rtcEnabled()) {
 1. Скачать архив ветки: [`alpha.tar.gz`](https://github.com/artt652/majordomo-go2rtc/archive/refs/heads/alpha.tar.gz) (встроенный go2rtc) или [`main.tar.gz`](https://github.com/artt652/majordomo-go2rtc/archive/refs/heads/main.tar.gz).
 2. **Панель управления → Маркет дополнений → «Добавить/обновить вручную»** → выбрать скачанный файл → **«Загрузить и установить»**. Маркет сам снимает верхний каталог архива (`majordomo-go2rtc-alpha/`) и не трогает `README.md` MajorDoMo.
 
-   Без Маркета — распаковать архив и скопировать каталоги `modules`, `templates`, `languages`, `scripts` в корень MajorDoMo, затем открыть модуль в панели управления.
+   Без Маркета — распаковать архив и скопировать каталоги `modules`, `templates`, `languages`, `scripts`, `img` в корень MajorDoMo, затем открыть модуль в панели управления.
 3. При первом открытии создаются таблицы `go2rtc_links`, `go2rtc_cameras` и подписка на `MINUTELY`; настройки камер из прежней полной версии «Терминалов» переносятся один раз.
 4. Режим — на вкладке «Настройки»: **внешний** go2rtc ставится отдельно (свой, на этой или другой машине, в Docker, Termux); **встроенный** (ветка `alpha`) модуль ставит сам кнопкой «Установить go2rtc», а запускает цикл `cycle_go2rtc`. Если цикл не появился в «Циклах» — перезапустить MajorDoMo.
 
