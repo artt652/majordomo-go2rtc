@@ -209,10 +209,9 @@ $dictionary = array(
 	'GO2RTC_WAIT'                  => 'Wait for the first camera frame, seconds',
 	'GO2RTC_WAIT_HELP'             => 'How long to wait for a camera to answer: snapshot, start of live view. Remote and cloud cameras may wake up in 10–20 s. Empty — 6 s. A camera that did not answer in time is considered unavailable for 30 s.',
 	'GO2RTC_WEBTORRENT'            => 'Outside viewing via WebTorrent',
-	'GO2RTC_WEBTORRENT_HELP'       => 'A temporary link to watch a camera outside home without opening go2rtc to the internet (go2rtc.org player, public tracker for the connection, video goes directly). The link is access: it is closed after the time below.',
+	'GO2RTC_WEBTORRENT_HELP'       => 'A temporary link to watch a camera outside home without opening go2rtc to the internet (go2rtc.org player, public tracker for the connection, video goes directly). The link is access: the lifetime is chosen when creating it (Share → WebTorrent) and the link is closed when it ends.',
 	'GO2RTC_WHO_SEES'              => 'Who sees',
 	'GO2RTC_WT_FAILED'             => 'Could not create a WebTorrent link (go2rtc did not respond).',
-	'GO2RTC_WT_MINUTES'            => 'Outside link lifetime, minutes',
 );
 
 foreach ($dictionary as $key => $value) {
