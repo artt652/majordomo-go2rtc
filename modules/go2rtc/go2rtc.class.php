@@ -232,8 +232,8 @@ class go2rtc extends module
             $out['GO2RTC_API_LIMIT'] = $ls['api_limit'] ? 1 : 0;
             $out['LOCAL_LOCKED'] = go2rtcLocalApiLocked() ? 1 : 0;
             if ($ls['api_lan']) {
-                $ip = function_exists('getLocalIp') ? getLocalIp() : '';
-                $out['LOCAL_WEB_UI'] = $h('http://' . ($ip ? $ip : $_SERVER['SERVER_NAME']) . ':' . $ls['api_port'] . '/');
+                // адрес — как для устройств (настройка «Адрес go2rtc для устройств»): в Docker адрес машины в сети другой
+                $out['LOCAL_WEB_UI'] = $h(go2rtcDeviceBase() . '/');
             }
             if ($ls['file']) {
                 clearstatcache();
