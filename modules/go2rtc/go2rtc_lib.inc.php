@@ -12,6 +12,7 @@
  *   GO2RTC_URL, GO2RTC_USER, GO2RTC_PASSWORD — API для сервера (пусто — камер нет). С той же машины
  *     go2rtc пароль не спрашивает (кроме local_auth: true);
  *   GO2RTC_DEVICE_URL — адрес go2rtc для устройств (пусто — адрес сервера в сети и порт из GO2RTC_URL);
+ *   GO2RTC_LINK_URL — адрес сайта для гостевых ссылок (пусто — адрес, по которому открыта страница, иначе BASE_URL);
  *   GO2RTC_RTSP_PORT, GO2RTC_RTSP_USER, GO2RTC_RTSP_PASSWORD — RTSP-сервер go2rtc (свой пароль, только просмотр);
  *   GO2RTC_WEBTORRENT, GO2RTC_WT_MINUTES — внешний просмотр через WebTorrent и срок ссылки;
  *   GO2RTC_WAIT — сколько ждать первый кадр камеры, с (снимок, начало просмотра; пусто — 6);
@@ -131,6 +132,7 @@ function go2rtcConfig()
         'api_lan' => $get('GO2RTC_API_LAN', '1') == '1',
         'view_php' => $get('GO2RTC_VIEW_PHP') == '1',
         'device_url' => rtrim($get('GO2RTC_DEVICE_URL'), '/'),
+        'link_url' => rtrim($get('GO2RTC_LINK_URL'), '/'),
         'rtsp_port' => (int)$get('GO2RTC_RTSP_PORT', '8554'),
         'rtsp_user' => $get('GO2RTC_RTSP_USER'),
         'rtsp_password' => $get('GO2RTC_RTSP_PASSWORD'),
@@ -725,13 +727,19 @@ function go2rtcLinkCameras($me_keys)
     return $result;
 }
 
-// Адрес гостевой страницы: по адресу текущего запроса (как его видит браузер), иначе адрес сервера для устройств
+// Адрес гостевой страницы: «Адрес сайта для гостевых ссылок» из настроек; не задан — адрес текущего запроса
+// (как его видит браузер), иначе адрес сервера для устройств
 function go2rtcGuestUrl($id)
 {
+    $cfg = go2rtcConfig();
+    $path = ROOTHTML . 'api.php/module/go2rtc/guest/' . strtolower((string)$id);
+    if ($cfg['link_url'] != '') {
+        return $cfg['link_url'] . $path;
+    }
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off')
         || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https');
     $base = !empty($_SERVER['HTTP_HOST']) ? ($https ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] : go2rtcServerBase();
-    return $base . ROOTHTML . 'api.php/module/go2rtc/guest/' . strtolower((string)$id);
+    return $base . $path;
 }
 
 // Внешний просмотр через WebTorrent: ссылка на поток (создаётся или продлевается). Пустой массив — выключено

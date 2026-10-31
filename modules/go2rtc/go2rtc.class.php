@@ -69,10 +69,10 @@ class go2rtc extends module
         };
         $out['TAB'] = '';
         if (gr('go2rtc_save')) {
-            foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_RTSP_USER', 'GO2RTC_RTSP_PASSWORD') as $key) {
+            foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_LINK_URL', 'GO2RTC_RTSP_USER', 'GO2RTC_RTSP_PASSWORD') as $key) {
                 $this->config[$key] = trim((string)gr(strtolower($key)));
             }
-            foreach (array('GO2RTC_URL', 'GO2RTC_DEVICE_URL') as $key) {
+            foreach (array('GO2RTC_URL', 'GO2RTC_DEVICE_URL', 'GO2RTC_LINK_URL') as $key) {
                 if ($this->config[$key] != '' && !preg_match('#^https?://#i', $this->config[$key])) {
                     $this->config[$key] = 'http://' . $this->config[$key];
                 }
@@ -208,7 +208,7 @@ class go2rtc extends module
             }
         }
 
-        foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_RTSP_PORT', 'GO2RTC_RTSP_USER',
+        foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_LINK_URL', 'GO2RTC_RTSP_PORT', 'GO2RTC_RTSP_USER',
             'GO2RTC_RTSP_PASSWORD', 'GO2RTC_WT_MINUTES', 'GO2RTC_WAIT') as $key) {
             $out[$key] = $h(isset($this->config[$key]) ? $this->config[$key] : '');
         }
