@@ -129,6 +129,7 @@ function go2rtcConfig()
         'password' => $local ? '' : $get('GO2RTC_PASSWORD'),
         'local' => $local,
         'api_lan' => $get('GO2RTC_API_LAN', '1') == '1',
+        'view_php' => $get('GO2RTC_VIEW_PHP') == '1',
         'device_url' => rtrim($get('GO2RTC_DEVICE_URL'), '/'),
         'rtsp_port' => (int)$get('GO2RTC_RTSP_PORT', '8554'),
         'rtsp_user' => $get('GO2RTC_RTSP_USER'),
@@ -285,7 +286,7 @@ function go2rtcUrl($name, $format = 'rtsp')
 // Поток go2rtc через сервер (для устройств, когда API go2rtc закрыт паролем): mp4 и mjpeg передаются по мере поступления,
 // hls — плейлист с переписанными ссылками на сегменты (каждый сегмент — снова через сервер, по той же подписи).
 // Каждый зритель занимает процесс PHP, пока смотрит. $sub — запрос сегмента HLS (hls/segment.m4s?id=…), иначе ''
-function go2rtcStreamProxy($op, $name, $sub = '', $exp = 0, $sig = '')
+function go2rtcStreamProxy($op, $name, $sub = '', $exp = 0, $sig = '', $browser = false)
 {
     $cfg = go2rtcConfig();
     if ($cfg['url'] == '' || !function_exists('curl_init') || go2rtcDown($name)) {
@@ -294,6 +295,9 @@ function go2rtcStreamProxy($op, $name, $sub = '', $exp = 0, $sig = '')
     }
     $query = array('src' => $name);
     $path = 'api/stream.' . $op;
+    if ($op == 'mp4' && $browser) {
+        $query['mp4'] = ''; // кодеки, которые играет браузер: H.264/H.265 и AAC
+    }
     if ($op == 'hls') {
         // сегменты и плейлисты сеанса: только эти адреса и только с id сеанса
         if ($sub != '') {
@@ -434,6 +438,13 @@ function go2rtcServerBase()
         $server = 'http://' . $host . (isset($m[2]) ? $m[2] : '');
     }
     return rtrim($server, '/');
+}
+
+// Согласование WebRTC через сервер для плеера в браузере: при «Видео через сервер» (PHP) — пусто, видео пойдёт по HTTP
+function go2rtcViewWhep($name, $exp)
+{
+    $cfg = go2rtcConfig();
+    return $cfg['view_php'] ? '' : go2rtcSignedUrl('whep', $name, $exp);
 }
 
 // Подписанная ссылка модуля на кадр ('frame'), согласование WebRTC ('whep') или поток через сервер
@@ -1207,7 +1218,7 @@ function go2rtcCameraShowProperty($camera, $value)
 function go2rtcDirectBase()
 {
     $cfg = go2rtcConfig();
-    if ($cfg['url'] == '' || $cfg['user'] != '' || $cfg['password'] != '') {
+    if ($cfg['url'] == '' || $cfg['user'] != '' || $cfg['password'] != '' || $cfg['view_php']) {
         return '';
     }
     if ($cfg['local'] && (!$cfg['api_lan'] || go2rtcLocalApiLocked())) {

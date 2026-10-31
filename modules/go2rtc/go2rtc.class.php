@@ -77,6 +77,7 @@ class go2rtc extends module
                     $this->config[$key] = 'http://' . $this->config[$key];
                 }
             }
+            $this->config['GO2RTC_VIEW_PHP'] = gr('go2rtc_view_php', 'int') ? '1' : '0';
             $this->config['GO2RTC_RTSP_PORT'] = gr('go2rtc_rtsp_port', 'int') ? (string)gr('go2rtc_rtsp_port', 'int') : '';
             $this->config['GO2RTC_WEBTORRENT'] = gr('go2rtc_webtorrent', 'int') ? '1' : '0';
             $this->config['GO2RTC_WT_MINUTES'] = gr('go2rtc_wt_minutes', 'int') ? (string)max(1, min(1440, gr('go2rtc_wt_minutes', 'int'))) : '';
@@ -212,6 +213,7 @@ class go2rtc extends module
             $out[$key] = $h(isset($this->config[$key]) ? $this->config[$key] : '');
         }
         $out['GO2RTC_WEBTORRENT'] = !empty($this->config['GO2RTC_WEBTORRENT']) ? 1 : 0;
+        $out['GO2RTC_VIEW_PHP'] = (isset($this->config['GO2RTC_VIEW_PHP']) && $this->config['GO2RTC_VIEW_PHP'] == '1') ? 1 : 0;
         // встроенный go2rtc
         $out['LOCAL'] = go2rtcLocal() ? 1 : 0;
         foreach (array('GO2RTC_API_PORT', 'GO2RTC_WEBRTC_PORT', 'GO2RTC_FFMPEG') as $key) {
@@ -285,7 +287,7 @@ class go2rtc extends module
                 $hq = go2rtcCameraHq($name);
                 $grid = array('ID' => (int)$row['ID'], 'NAME' => $h($name), 'TITLE' => $h($row['TITLE']), 'HIDDEN' => (int)$row['HIDDEN'],
                     'FRAME' => $h(go2rtcSignedUrl('frame', $name, $exp)), 'FRAME_HQ' => $h(go2rtcSignedUrl('frame', $hq, $exp)),
-                    'WHEP' => $h(go2rtcSignedUrl('whep', $hq, $exp)), 'WHEP_MAIN' => $h(go2rtcSignedUrl('whep', $name, $exp)), 'AUDIO' => isset($row['AUDIO']) ? (int)$row['AUDIO'] : 1, 'HQ' => $h($hq), 'LINKED' => $h($row['LINKED_OBJECT']),
+                    'WHEP' => $h(go2rtcViewWhep($hq, $exp)), 'WHEP_MAIN' => $h(go2rtcViewWhep($name, $exp)), 'AUDIO' => isset($row['AUDIO']) ? (int)$row['AUDIO'] : 1, 'HQ' => $h($hq), 'LINKED' => $h($row['LINKED_OBJECT']),
                     'WHO' => $h($who), 'RULE' => go2rtcRuleDefined($row['ID']) ? 1 : 0);
                 if (!(int)$row['HIDDEN']) {
                     $out['GRID'][] = $grid;
@@ -469,7 +471,7 @@ class go2rtc extends module
         }
         $exp = time() + 12 * 3600;
         $out['CAMERA_FRAME'] = $h(go2rtcSignedUrl('frame', $camera['NAME'], $exp));
-        $out['CAMERA_WHEP'] = $h(go2rtcSignedUrl('whep', $camera['NAME'], $exp));
+        $out['CAMERA_WHEP'] = $h(go2rtcViewWhep($camera['NAME'], $exp));
         $out['WAIT'] = (int)go2rtcConfig()['wait'];
         $out['DIRECT'] = $h(go2rtcDirectBase());
         // код вставки в сцену (подпись — название камеры, переименование подхватится само); скобки — сущностями, иначе шаблонизатор панели выполнит его прямо здесь
@@ -568,7 +570,7 @@ class go2rtc extends module
         $hq = go2rtcCameraHq($cam);
         $cfg = go2rtcConfig();
         return array('ok' => 1, 'frame' => go2rtcSignedUrl('frame', $cam, $exp), 'frame_hq' => go2rtcSignedUrl('frame', $hq, $exp),
-            'whep' => go2rtcSignedUrl('whep', $hq, $exp), 'hq' => $hq, 'direct' => go2rtcDirectBase(),
+            'whep' => go2rtcViewWhep($hq, $exp), 'hq' => $hq, 'direct' => go2rtcDirectBase(),
             'player' => ROOTHTML . 'templates/go2rtc/js/video-rtc.js', 'wait' => (int)$cfg['wait'], 'exp' => $exp, 'audio' => go2rtcCameraAudio($cam));
     }
 
@@ -621,12 +623,13 @@ class go2rtc extends module
             go2rtcWhepProxy($cam);
         }
         if ($op == 'mp4' || $op == 'mjpeg' || $op == 'hls') {
-            // потоки HTTP через сервер — только по подписи (не по гостевой ссылке)
-            if ($cam == '' || $id != '') {
+            // потоки HTTP через сервер — по подписи; по гостевой ссылке — только MP4 (HLS переписывает ссылки по подписи)
+            if ($cam == '' || ($id != '' && $op != 'mp4')) {
                 header('HTTP/1.1 404 Not Found');
                 exit;
             }
-            go2rtcStreamProxy($op, $cam, isset($params['p']) ? (string)$params['p'] : '', (int)$params['exp'], (string)$params['sig']);
+            go2rtcStreamProxy($op, $cam, isset($params['p']) ? (string)$params['p'] : '', isset($params['exp']) ? (int)$params['exp'] : 0,
+                isset($params['sig']) ? (string)$params['sig'] : '', !empty($params['b']));
         }
         if ($op == 'check') {
             header('Content-Type: application/json; charset=utf-8');
@@ -679,7 +682,7 @@ class go2rtc extends module
             . '<main id="view" data-off="' . $h($texts['offline']) . '"></main>'
             . '<script>(function(){var base=' . json_encode($base, $flags) . ',id=' . json_encode($id, $flags) . ',t=' . json_encode($texts, $flags)
             . ',expires=' . (int)$link['expires'] . ',state=document.getElementById("state");'
-            . 'var v=go2rtcViewer(document.getElementById("view"),{frame:base+"frame/"+id,whep:base+"whep/"+id,live:true,width:1280,controls:true,audio:' . go2rtcCameraAudio($cam) . ',wait:' . (int)$cfg['wait'] . ','
+            . 'var v=go2rtcViewer(document.getElementById("view"),{frame:base+"frame/"+id,whep:' . (go2rtcConfig()['view_php'] ? '""' : 'base+"whep/"+id') . ',live:true,width:1280,controls:true,audio:' . go2rtcCameraAudio($cam) . ',wait:' . (int)$cfg['wait'] . ','
             . 'onstate:function(s){state.textContent=s=="live"?t.live:(s=="offline"?t.offline:t.snapshot);}});state.textContent=t.snapshot;'
             . 'function gone(){v.stop();document.body.innerHTML="";var d=document.createElement("div");d.className="gone";d.textContent=t.gone;document.body.appendChild(d);}'
             . 'setInterval(function(){if(Date.now()>expires*1000)gone();},5000);'
@@ -703,7 +706,7 @@ class go2rtc extends module
         $cfg = go2rtcConfig();
         $hq = go2rtcCameraHq($cam);
         $flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES;
-        $opts = array('frame' => go2rtcSignedUrl('frame', $mode == 'live' ? $hq : $cam, $exp), 'whep' => go2rtcSignedUrl('whep', $hq, $exp),
+        $opts = array('frame' => go2rtcSignedUrl('frame', $mode == 'live' ? $hq : $cam, $exp), 'whep' => go2rtcViewWhep($hq, $exp),
             'direct' => go2rtcDirectBase() != '' ? array('base' => go2rtcDirectBase(), 'src' => $hq) : null,
             'player' => ROOTHTML . 'templates/go2rtc/js/video-rtc.js', 'wait' => (int)$cfg['wait'], 'live' => $mode == 'live',
             'width' => 1280, 'interval' => 3000, 'audio' => go2rtcCameraAudio($cam), 'controls' => $mode == 'live');

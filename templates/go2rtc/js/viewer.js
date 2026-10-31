@@ -17,7 +17,7 @@
  *       audio: true,         // запрашивать звук (false — только видео); начинается без звука — v.mute(false) включает
  *       muted: true,         // false — сразу со звуком (только после нажатия пользователя — иначе браузер не запустит)
  *       onmute: function (muted) {},       // звук выключили или включили (кнопкой, плеером или браузер сам)
- *       onstate: function (state, how) {}, // state: 'snapshot' | 'live' | 'offline'; how: 'direct' | 'whep'
+ *       onstate: function (state, how) {}, // state: 'snapshot' | 'live' | 'offline'; how: 'direct' | 'whep' | 'php'
  *       poster: go2rtcViewer.capture(oldBox)  // что показать до первого кадра (снимок прошлого просмотра), без чёрного экрана
  *   });
  *   v.stop();  // остановить снимки и видео
@@ -25,7 +25,8 @@
  *
  * Живое видео: сначала плеер go2rtc напрямую (браузер видит go2rtc, у его API нет пароля; по HTTPS к http-адресу
  * go2rtc браузер не пустит — тогда сразу дальше), не пошло за ожидание камеры + 4 с — WebRTC через сервер (WHEP),
- * не пошло и оно — остаются снимки. Снимок: следующий — когда загрузился прошлый (без мигания), «нет связи» —
+ * не пошло и оно — видео через сервер (PHP читает go2rtc и отдаёт MP4, в Safari — HLS; адрес — как у кадра, с /mp4 и /hls
+ * вместо /frame), не пошло и оно — остаются снимки. Нет direct и whep (настройка «Видео через сервер») — сразу через сервер. Снимок: следующий — когда загрузился прошлый (без мигания), «нет связи» —
  * после 20 с неудач подряд. Первым — последний сохранённый кадр (сразу, без ожидания камеры), следом — свежий. Файл без новых конструкций языка — в старом браузере работают хотя бы снимки.
  */
 (function () {
@@ -89,7 +90,7 @@
 		var interval = opts.interval || 2000;
 		var wait = opts.wait || 6;
 		var stopped = false, loading = false, live = '', failSince = 0, state = '', visible = true, first = true;
-		var timer = null, pc = null, rtc = null, observer = null, liveTimer = null;
+		var timer = null, pc = null, rtc = null, observer = null, liveTimer = null, streaming = false;
 		var audio = opts.audio !== false && opts.audio !== 0;
 		var muted = !audio || opts.muted !== false;
 
@@ -222,7 +223,11 @@
 
 		// 2) WebRTC через сервер (WHEP: согласование — модуль, видео — с go2rtc напрямую)
 		function startWhep() {
-			if (stopped || live || !opts.whep || !window.RTCPeerConnection || pc) return;
+			if (stopped || live || pc) return;
+			if (!opts.whep || !window.RTCPeerConnection) {
+				startStream();
+				return;
+			}
 			pc = new RTCPeerConnection({iceServers: []});
 			pc.addTransceiver('video', {direction: 'recvonly'});
 			if (audio) pc.addTransceiver('audio', {direction: 'recvonly'});
@@ -256,15 +261,64 @@
 			}).then(function (sdp) {
 				return pc.setRemoteDescription({type: 'answer', sdp: sdp});
 			}).catch(function () {
-				stopWhep();
+				if (!live) failWhep();
 			});
-			liveTimer = setTimeout(function () { if (!live) stopWhep(); }, (wait + 4) * 1000);
+			liveTimer = setTimeout(function () { if (!live) failWhep(); }, (wait + 4) * 1000);
 		}
 
 		function stopWhep() {
 			if (pc) { try { pc.close(); } catch (e) {} }
 			pc = null;
 			video.srcObject = null;
+		}
+
+		// 3) видео через сервер: PHP читает go2rtc и отдаёт поток по HTTP — работает там, где WebRTC недоступен
+		// (порт WebRTC не открыт, вне дома). Safari (нет fMP4 по HTTP) — HLS; адреса — как у кадра: /frame → /mp4, /hls
+		function streamUrl() {
+			var f = opts.frame || '';
+			if (!/\/frame([?\/])/.test(f)) return '';
+			var hls = video.canPlayType && video.canPlayType('application/vnd.apple.mpegurl') && !/Chrome|Chromium|Android/.test(navigator.userAgent);
+			if (hls) return f.indexOf('?') >= 0 ? f.replace(/\/frame\?/, '/hls?') : '';
+			return f.replace(/\/frame([?\/])/, '/mp4$1') + (f.indexOf('?') >= 0 ? '&' : '?') + 'b=1';
+		}
+
+		function startStream() {
+			var url = streamUrl();
+			if (stopped || live || streaming || !url) return;
+			streaming = true;
+			video.addEventListener('playing', onStreamPlaying);
+			video.addEventListener('error', onStreamError);
+			video.src = url;
+			try {
+				var pr = video.play();
+				if (pr && pr.catch) pr.catch(function () {
+					if (!video.muted) { video.muted = true; video.play().catch(function () {}); }
+				});
+			} catch (er) {}
+			liveTimer = setTimeout(function () { if (!live) stopStream(); }, (wait + 8) * 1000);
+		}
+
+		function onStreamPlaying() { if (!live && streaming) showLive('php', video); }
+		function onStreamError() {
+			if (!streaming) return;
+			var was = live == 'php';
+			stopStream();
+			if (was) { stopLive(); setState('snapshot'); }   // поток оборвался — снова снимки
+		}
+
+		function stopStream() {
+			if (!streaming) return;
+			streaming = false;
+			video.removeEventListener('playing', onStreamPlaying);
+			video.removeEventListener('error', onStreamError);
+			video.removeAttribute('src');
+			try { video.load(); } catch (e) {}
+		}
+
+		// WebRTC через сервер не получился (нет или не пошёл) — видео через сервер
+		function failWhep() {
+			stopWhep();
+			startStream();
 		}
 
 		function startLive() {
@@ -276,6 +330,7 @@
 			clearTimeout(liveTimer);
 			stopDirect();
 			stopWhep();
+			stopStream();
 			live = '';
 			video.style.display = 'none';
 			shot.style.display = '';

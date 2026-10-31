@@ -227,6 +227,13 @@
 	</div>
 </div>
 <div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label g2-empty">&nbsp;</label>
+	<div class="col-sm-8 col-md-6">
+		<div class="checkbox"><label><input type="checkbox" name="go2rtc_view_php" value="1"[#if GO2RTC_VIEW_PHP="1"#] checked[#endif#]> <#LANG_GO2RTC_VIEW_PHP#></label></div>
+		<p class="help-block"><#LANG_GO2RTC_VIEW_PHP_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
 	<label class="col-sm-4 col-md-3 control-label">RTSP:</label>
 	<div class="col-sm-8 col-md-6">
 		<div class="row g2-pair">
@@ -464,7 +471,7 @@
 		var liveSound = document.getElementById('g2_live_sound');
 		var live = document.getElementById('g2_live'), liveView = null, share = document.getElementById('g2_share');
 		var texts = {live: '<#LANG_GO2RTC_CAM_LIVE#>', snapshot: '<#LANG_GO2RTC_CAM_SNAPSHOT#>', offline: '<#LANG_GO2RTC_CAM_OFFLINE#>',
-			direct: '<#LANG_GO2RTC_HOW_DIRECT#>', whep: '<#LANG_GO2RTC_HOW_WHEP#>'};
+			direct: '<#LANG_GO2RTC_HOW_DIRECT#>', whep: '<#LANG_GO2RTC_HOW_WHEP#>', php: '<#LANG_GO2RTC_HOW_PHP#>'};
 		function closeLive() {
 			if (liveView) liveView.stop();
 			liveView = null;
@@ -487,7 +494,7 @@
 				direct: direct ? {base: direct, src: tile.getAttribute('data-hq')} : null, player: player,
 				audio: tile.getAttribute('data-audio') == '1', onmute: function (m) { soundIcon(liveSound, m); },
 				width: 1280, controls: true, wait: wait, onstate: function (s, how) {
-					state.textContent = (texts[s] || '') + (s == 'live' && how ? ' · ' + (how == 'direct' ? texts.direct : texts.whep) : '');
+					state.textContent = (texts[s] || '') + (s == 'live' && how ? ' · ' + (texts[how] || texts.whep) : '');
 				}});
 		}
 		Array.prototype.forEach.call(tileList, function (tile, i) {
