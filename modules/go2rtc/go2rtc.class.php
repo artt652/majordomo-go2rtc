@@ -257,6 +257,8 @@ class go2rtc extends module
         $out['LOCAL_UPDATE'] = $st['update'] ? 1 : 0;
         $out['LOCAL_FFMPEG'] = $h($st['ffmpeg']);
         $out['LOCAL_FFMPEG_VERSION'] = $h($st['ffmpeg_version']);
+        // ffmpeg старше 5-й версии (4.x из Debian 10 и т. п.): подсказка про свежую сборку
+        $out['LOCAL_FFMPEG_OLD'] = (preg_match('/^(\d+)\./', (string)$st['ffmpeg_version'], $fm) && (int)$fm[1] < 5) ? 1 : 0;
         $out['LOCAL_CYCLE'] = ($st['cycle'] && time() - $st['cycle'] < 120) ? 1 : 0;
         $out['LOCAL_LOG_TAIL'] = $out['LOCAL'] ? $h(go2rtcLocalLog(30)) : '';
         $out['WEBTORRENT'] = $out['GO2RTC_WEBTORRENT'];
