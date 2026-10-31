@@ -385,6 +385,44 @@ function go2rtcLocalFfmpeg()
     return array($bin, $version);
 }
 
+// Проба ffmpeg и железа: текст для панели. Версия и кодировщики — запуск ffmpeg, аппаратное ускорение — проба go2rtc
+// (api/ffmpeg/hardware: тестовое кодирование каждым движком — VAAPI, NVIDIA, Raspberry Pi и т. д.)
+function go2rtcLocalHardware()
+{
+    list($bin, $version) = go2rtcLocalFfmpeg();
+    if ($version == '') {
+        return go2rtcLang('GO2RTC_LOCAL_NO_FFMPEG');
+    }
+    $lines = array();
+    $major = preg_match('/^(\d+)\./', $version, $m) ? (int)$m[1] : 0;
+    $lines[] = 'ffmpeg ' . $version . ($major ? ': ' . go2rtcLang($major >= 5 ? 'GO2RTC_HW_ACCEPT_OK' : 'GO2RTC_HW_ACCEPT_NO') : '');
+    $list = go2rtcLocalExec(go2rtcLocalArg($bin) . ' -hide_banner -encoders', $code);
+    $found = array();
+    foreach (array('libx264', 'libx265', 'aac', 'libopus', 'mjpeg') as $enc) {
+        $found[] = $enc . ' ' . (preg_match('/^\s*[AVS][\w.]*\s+' . preg_quote($enc, '/') . '\s/m', $list) ? '✓' : '✗');
+    }
+    $lines[] = go2rtcLang('GO2RTC_HW_ENCODERS') . ': ' . implode(', ', $found);
+    $lines[] = '';
+    $lines[] = go2rtcLang('GO2RTC_HW_TITLE') . ':';
+    if (go2rtcLocalApiLimited()) {
+        $lines[] = '  ' . go2rtcLang('GO2RTC_HW_LIMIT');
+    } elseif (!go2rtcLocalPing()) {
+        $lines[] = '  ' . go2rtcLang('GO2RTC_LOCAL_NOT_RUNNING');
+    } else {
+        $body = go2rtcRequest('GET', 'api/ffmpeg/hardware', array(), null, '', $code, 30);
+        $data = json_decode((string)$body, true);
+        if ($code == 200 && !empty($data['sources'])) {
+            foreach ($data['sources'] as $src) {
+                $kind = (isset($src['url']) && preg_match('/#video=(\w+)#hardware=(\w+)/', $src['url'], $mm)) ? $mm[1] . ' · ' . $mm[2] : (isset($src['url']) ? $src['url'] : '?');
+                $lines[] = '  ' . $kind . ' — ' . go2rtcLang(isset($src['name']) && $src['name'] == 'OK' ? 'GO2RTC_HW_OK' : 'GO2RTC_HW_NO');
+            }
+        } else {
+            $lines[] = '  ' . go2rtcLang($code == 404 ? 'GO2RTC_HW_NONE' : 'GO2RTC_LOCAL_NOT_RUNNING');
+        }
+    }
+    return implode("\n", $lines);
+}
+
 // Адрес источника камеры: логин и пароль — в адрес (только для отправки в go2rtc, в базе — отдельно)
 function go2rtcLocalSource($camera, $hq = false)
 {

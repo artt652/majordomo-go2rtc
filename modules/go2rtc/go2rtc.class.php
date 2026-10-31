@@ -146,6 +146,11 @@ class go2rtc extends module
             }
             $out['TAB'] = 'tab_settings';
         }
+        // проба ffmpeg и железа
+        if (gr('local_hardware')) {
+            $out['LOCAL_HARDWARE'] = $h(go2rtcLocalHardware());
+            $out['TAB'] = 'tab_settings';
+        }
         foreach (array('start', 'stop', 'restart') as $action) {
             if (gr('local_' . $action)) {
                 go2rtcLocalControl($action);
