@@ -80,7 +80,6 @@ class go2rtc extends module
             $this->config['GO2RTC_VIEW_PHP'] = gr('go2rtc_view_php', 'int') ? '1' : '0';
             $this->config['GO2RTC_RTSP_PORT'] = gr('go2rtc_rtsp_port', 'int') ? (string)gr('go2rtc_rtsp_port', 'int') : '';
             $this->config['GO2RTC_WEBTORRENT'] = gr('go2rtc_webtorrent', 'int') ? '1' : '0';
-            $this->config['GO2RTC_WT_MINUTES'] = gr('go2rtc_wt_minutes', 'int') ? (string)max(1, min(1440, gr('go2rtc_wt_minutes', 'int'))) : '';
             $this->config['GO2RTC_WAIT'] = gr('go2rtc_wait', 'int') ? (string)max(2, min(25, gr('go2rtc_wait', 'int'))) : '';
             // встроенный go2rtc: режим, порты, доступ к API из сети, ffmpeg
             $this->config['GO2RTC_MODE'] = (gr('go2rtc_mode') == 'local') ? 'local' : '';
@@ -174,7 +173,7 @@ class go2rtc extends module
                 $id = go2rtcLinkCreate($share_cam, 'guest', max(1, min(43200, gr('share_minutes', 'int'))), array(), 'admin', $by_title);
                 $out['NEW_LINK'] = $h(go2rtcGuestUrl($id));
             } else {
-                $share = go2rtcShare($share_cam);
+                $share = go2rtcShare($share_cam, max(1, min(43200, gr('share_minutes', 'int'))));
                 $out['NEW_LINK'] = !empty($share['url']) ? $h($share['url']) : '';
                 $out['NEW_LINK_FAILED'] = empty($share['url']) ? 1 : 0;
             }
@@ -214,7 +213,7 @@ class go2rtc extends module
         }
 
         foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_LINK_URL', 'GO2RTC_RTSP_PORT', 'GO2RTC_RTSP_USER',
-            'GO2RTC_RTSP_PASSWORD', 'GO2RTC_WT_MINUTES', 'GO2RTC_WAIT') as $key) {
+            'GO2RTC_RTSP_PASSWORD', 'GO2RTC_WAIT') as $key) {
             $out[$key] = $h(isset($this->config[$key]) ? $this->config[$key] : '');
         }
         $out['GO2RTC_WEBTORRENT'] = !empty($this->config['GO2RTC_WEBTORRENT']) ? 1 : 0;
@@ -836,7 +835,7 @@ EOD;
                 continue;
             }
             foreach ($old as $key => $value) {
-                if (preg_match('/^(GO2RTC_(URL|USER|PASSWORD|DEVICE_URL|RTSP_PORT|RTSP_USER|RTSP_PASSWORD|WEBTORRENT|WT_MINUTES|WAIT)|CAMERA_ACCESS)$/', (string)$key)
+                if (preg_match('/^(GO2RTC_(URL|USER|PASSWORD|DEVICE_URL|RTSP_PORT|RTSP_USER|RTSP_PASSWORD|WEBTORRENT|WAIT)|CAMERA_ACCESS)$/', (string)$key)
                     && !isset($this->config[$key])) {
                     $this->config[$key] = $value;
                     $moved[] = $key;

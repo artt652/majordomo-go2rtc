@@ -14,7 +14,7 @@
  *   GO2RTC_DEVICE_URL — адрес go2rtc для устройств (пусто — адрес сервера в сети и порт из GO2RTC_URL);
  *   GO2RTC_LINK_URL — адрес сайта для гостевых ссылок (пусто — адрес, по которому открыта страница, иначе BASE_URL);
  *   GO2RTC_RTSP_PORT, GO2RTC_RTSP_USER, GO2RTC_RTSP_PASSWORD — RTSP-сервер go2rtc (свой пароль, только просмотр);
- *   GO2RTC_WEBTORRENT, GO2RTC_WT_MINUTES — внешний просмотр через WebTorrent и срок ссылки;
+ *   GO2RTC_WEBTORRENT — внешний просмотр через WebTorrent (срок ссылки — при создании);
  *   GO2RTC_WAIT — сколько ждать первый кадр камеры, с (снимок, начало просмотра; пусто — 6);
  *   GO2RTC_DEFAULT_ACCESS — камеры без правила «Контроля доступа»: admin | all; SECRET — ключ подписи ссылок.
  * Права на камеры — «Контроль доступа» ядра (security_rules, тип go2rtc); камеры — таблица go2rtc_cameras.
@@ -137,7 +137,6 @@ function go2rtcConfig()
         'rtsp_user' => $get('GO2RTC_RTSP_USER'),
         'rtsp_password' => $get('GO2RTC_RTSP_PASSWORD'),
         'webtorrent' => $get('GO2RTC_WEBTORRENT') == '1',
-        'wt_minutes' => max(1, min(1440, (int)$get('GO2RTC_WT_MINUTES', '10'))),
         // удалённые и облачные камеры просыпаются дольше; не больше 25 с — запрос страницы укладывается в 30 с PHP
         'wait' => max(2, min(25, (int)$get('GO2RTC_WAIT', '6'))),
     );
@@ -743,8 +742,8 @@ function go2rtcGuestUrl($id)
 }
 
 // Внешний просмотр через WebTorrent: ссылка на поток (создаётся или продлевается). Пустой массив — выключено
-// или go2rtc не ответил. Ссылка живёт GO2RTC_WT_MINUTES после последнего запроса (чистка — MINUTELY)
-function go2rtcShare($name)
+// или go2rtc не ответил. Ссылка живёт $minutes минут от создания (повторное создание продлевает; чистка — MINUTELY)
+function go2rtcShare($name, $minutes = 60)
 {
     $cfg = go2rtcConfig();
     if (!$cfg['webtorrent'] || !go2rtcHas($name)) {
@@ -758,7 +757,7 @@ function go2rtcShare($name)
         DebMes('go2rtc: webtorrent share failed for ' . $name . ' (HTTP ' . $code . ')', 'go2rtc');
         return array();
     }
-    $expires = time() + $cfg['wt_minutes'] * 60;
+    $expires = time() + max(1, min(43200, (int)$minutes)) * 60;
     $row = SQLSelectOne("SELECT * FROM go2rtc_links WHERE KIND='webtorrent' AND CAM='" . DBSafe($name) . "'");
     if (!empty($row['ID'])) {
         $row['EXPIRES'] = $expires;
