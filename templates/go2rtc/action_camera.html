@@ -19,9 +19,10 @@
 	<!-- превью: снимки; нажатие — живое видео (ещё раз — снова снимки) -->
 	<!-- плитка как в списке камер: превью, под ним название и меню (звук, на весь экран, поделиться); поделиться — поверх превью -->
 	<div class="g2-camera-tile">
-		<div class="g2-camera-preview" id="g2_preview" data-frame="[#CAMERA_FRAME#]" data-whep="[#CAMERA_WHEP#]" data-name="[#CAMERA_NAME#]" data-off="<#LANG_GO2RTC_CAM_OFFLINE#>" title="<#LANG_GO2RTC_CAM_LIVE#>"></div>
+		<div class="g2-camera-preview" id="g2_preview" data-frame="[#CAMERA_FRAME#]" data-whep="[#CAMERA_WHEP#]" data-name="[#CAMERA_NAME#]"[#if CAMERA_HQ!=""#] data-frame-hq="[#CAMERA_FRAME_HQ#]" data-whep-hq="[#CAMERA_WHEP_HQ#]" data-hq="[#CAMERA_HQ#]"[#endif CAMERA_HQ#] data-off="<#LANG_GO2RTC_CAM_OFFLINE#>" title="<#LANG_GO2RTC_CAM_LIVE#>"></div>
 		<div class="g2-cap"><b>[#CAMERA_TITLE#]</b><span class="g2-spacer"></span>
 			[#if CAMERA_AUDIO="1"#]<button type="button" class="g2-gear" id="g2_preview_sound" title="<#LANG_GO2RTC_SOUND_ON#>">🔇</button>[#endif CAMERA_AUDIO#]
+			[#if CAMERA_HQ!=""#]<button type="button" class="g2-gear g2-hd" id="g2_preview_hd" title="<#LANG_GO2RTC_HD#>">HD</button>[#endif CAMERA_HQ#]
 			<button type="button" class="g2-gear" id="g2_preview_full" title="<#LANG_GO2RTC_FULLSCREEN#>">⛶</button>
 			<button type="button" class="g2-gear" id="g2_preview_share" title="<#LANG_GO2RTC_SHARE#>">⤴</button></div>
 		<form action="?" method="post" class="g2-share" id="g2_cshare">
@@ -233,7 +234,7 @@
 		var box = document.getElementById('g2_preview'), snd = document.getElementById('g2_preview_sound');
 		if (!box) return;
 		var direct = '[#DIRECT#]', player = '<#ROOTHTML#>templates/go2rtc/js/video-rtc.js', wait = [#WAIT#] || 6;
-		var view = null, live = false;
+		var view = null, live = false, hd = false, hdBtn = document.getElementById('g2_preview_hd');
 		var texts = {on: '<#LANG_GO2RTC_SOUND_ON#>', off: '<#LANG_GO2RTC_SOUND_OFF#>'};
 		function icon(m) {
 			if (!snd) return;
@@ -247,9 +248,10 @@
 			box.innerHTML = '';
 			live = isLive;
 			icon(!withSound);
-			view = go2rtcViewer(box, {poster: poster, frame: box.getAttribute('data-frame'), width: 640, interval: 3000, wait: wait,
-				live: isLive, whep: box.getAttribute('data-whep'), audio: !!snd, muted: !withSound, onmute: icon,
-				direct: direct ? {base: direct, src: box.getAttribute('data-name')} : null, player: player});
+			// HD — поток высокого качества вместо основного
+			view = go2rtcViewer(box, {poster: poster, frame: box.getAttribute(hd ? 'data-frame-hq' : 'data-frame'), width: hd ? 1280 : 640, interval: 3000, wait: wait,
+				live: isLive, whep: box.getAttribute(hd ? 'data-whep-hq' : 'data-whep'), audio: !!snd, muted: !withSound, onmute: icon,
+				direct: direct ? {base: direct, src: box.getAttribute(hd ? 'data-hq' : 'data-name')} : null, player: player});
 		}
 		box.addEventListener('click', function () { if (!box.classList.contains('g2-full-box')) start(!live); });
 		if (snd) snd.addEventListener('click', function () {
@@ -274,6 +276,12 @@
 			box.classList.remove('g2-full-box');
 			layer.classList.remove('on');
 		}
+		if (hdBtn) hdBtn.addEventListener('click', function () {
+			var sound = !!(live && view && !view.mute());
+			hd = !hd;
+			hdBtn.classList.toggle('on', hd);
+			start(true, sound);
+		});
 		document.getElementById('g2_preview_full').addEventListener('click', openFull);
 		document.getElementById('g2_cfull_close').addEventListener('click', closeFull);
 		if (fsound) fsound.addEventListener('click', function () { if (view) { view.mute(!view.mute()); fsIcon(view.mute()); } });
