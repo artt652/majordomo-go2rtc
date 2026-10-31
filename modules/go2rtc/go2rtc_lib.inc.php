@@ -418,13 +418,20 @@ function go2rtcSignOk($name, $exp, $sig)
     return (int)$exp > time() && is_string($sig) && hash_equals(go2rtcSign($name, (int)$exp), $sig);
 }
 
-// Адрес сервера MajorDoMo для устройств: BASE_URL, а 127.0.0.1 / localhost в нём — адрес сервера в сети
+// Адрес сервера MajorDoMo для устройств: BASE_URL, а 127.0.0.1 / localhost в нём — адрес этой машины в сети:
+// как в «Адресе go2rtc для устройств» (в Docker автоопределение даёт адрес контейнера), иначе определённый сам
 function go2rtcServerBase()
 {
     $server = defined('BASE_URL') ? BASE_URL : '';
-    $ip = function_exists('getLocalIp') ? getLocalIp() : '';
-    if ($ip && preg_match('#^https?://(127\.0\.0\.1|localhost)(:\d+)?#i', $server, $m)) {
-        $server = 'http://' . $ip . (isset($m[2]) ? $m[2] : '');
+    $cfg = go2rtcConfig();
+    $host = ($cfg['device_url'] != '') ? (string)parse_url($cfg['device_url'], PHP_URL_HOST) : '';
+    if ($host == '') {
+        $host = function_exists('getLocalIp') ? (string)getLocalIp() : '';
+    } elseif (strpos($host, ':') !== false) {
+        $host = '[' . $host . ']';
+    }
+    if ($host != '' && preg_match('#^https?://(127\.0\.0\.1|localhost)(:\d+)?#i', $server, $m)) {
+        $server = 'http://' . $host . (isset($m[2]) ? $m[2] : '');
     }
     return rtrim($server, '/');
 }
@@ -707,12 +714,12 @@ function go2rtcLinkCameras($me_keys)
     return $result;
 }
 
-// Адрес гостевой страницы: по адресу текущего запроса (как его видит браузер), иначе BASE_URL
+// Адрес гостевой страницы: по адресу текущего запроса (как его видит браузер), иначе адрес сервера для устройств
 function go2rtcGuestUrl($id)
 {
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off')
         || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) == 'https');
-    $base = !empty($_SERVER['HTTP_HOST']) ? ($https ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] : (defined('BASE_URL') ? rtrim(BASE_URL, '/') : '');
+    $base = !empty($_SERVER['HTTP_HOST']) ? ($https ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] : go2rtcServerBase();
     return $base . ROOTHTML . 'api.php/module/go2rtc/guest/' . strtolower((string)$id);
 }
 
