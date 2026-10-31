@@ -83,6 +83,7 @@ $dictionary = array(
 	'GO2RTC_LOCAL_DELETED'         => 'Camera deleted',
 	'GO2RTC_LOCAL_DELETE_CONFIRM'  => 'Delete the camera from the module and from go2rtc?',
 	'GO2RTC_LOCAL_FFMPEG_HELP'     => 'Path to ffmpeg; empty — ffmpeg from PATH. Termux: pkg install ffmpeg; Linux: apt install ffmpeg; Windows — ffmpeg.exe separately.',
+	'GO2RTC_LOCAL_FFMPEG_OLD'      => 'Old ffmpeg (before 5): new codecs and options may not work. Put a fresh static build (for example BtbN FFmpeg-Builds or johnvansickle.com/ffmpeg) in a permanent place — in Docker on a volume so it survives recreating the container — and set its path in the ffmpeg field below.',
 	'GO2RTC_LOCAL_FILE'            => 'go2rtc data file',
 	'GO2RTC_LOCAL_FILE_HELP'       => 'For what go2rtc saves itself: HomeKit pairings, Xiaomi and Wyze logins, streams and ffmpeg presets from its web UI, preload. The file is the first config, the module settings the second: ports, API, RTSP password and ffmpeg path come from the module, a module camera with the same name overrides the file stream, other file streams show up as go2rtc cameras. Module cameras are not written to the file (changes apply by restarting go2rtc). Empty — cms/go2rtc/go2rtc.yaml.php: its first line is a PHP stub, so the file cannot be read by URL whatever the web server settings (keep it in the go2rtc editor — the module restores it at start). A custom path goes outside the site (in Docker — on a volume, it survives re-creating the container).',
 	'GO2RTC_LOCAL_FILE_ON'         => 'Keep go2rtc data in a file',

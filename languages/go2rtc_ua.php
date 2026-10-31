@@ -83,6 +83,7 @@ $dictionary = array(
 	'GO2RTC_LOCAL_DELETED'         => 'Камеру видалено',
 	'GO2RTC_LOCAL_DELETE_CONFIRM'  => 'Видалити камеру з модуля і з go2rtc?',
 	'GO2RTC_LOCAL_FFMPEG_HELP'     => 'Шлях до ffmpeg; порожньо — ffmpeg з PATH. Termux: pkg install ffmpeg; Linux: apt install ffmpeg; Windows — ffmpeg.exe окремо.',
+	'GO2RTC_LOCAL_FFMPEG_OLD'      => 'Стара версія ffmpeg (до 5): нові кодеки й параметри можуть не працювати. Покладіть свіжу статичну збірку (наприклад BtbN FFmpeg-Builds або johnvansickle.com/ffmpeg) у постійне місце — в Docker на том, щоб пережила перестворення контейнера — і вкажіть шлях у полі «ffmpeg» нижче.',
 	'GO2RTC_LOCAL_FILE'            => 'Файл даних go2rtc',
 	'GO2RTC_LOCAL_FILE_HELP'       => 'Для того, що go2rtc зберігає сам: сполучення HomeKit, входи Xiaomi і Wyze, потоки і пресети ffmpeg з його веб-інтерфейсу, preload. Файл іде першим конфігом, налаштування модуля — другим: порти, API, пароль RTSP і шлях ffmpeg беруться з модуля, камера модуля з тим самим ім’ям перекриває потік файлу, решта потоків файлу видно як камери go2rtc. Камери модуля у файл не пишуться (зміна — перезапуском go2rtc). Порожньо — cms/go2rtc/go2rtc.yaml.php: перший рядок — заглушка PHP, за посиланням файл не читається за будь-яких налаштувань веб-сервера (не видаляйте її в редакторі go2rtc — модуль поверне її під час запуску). Свій шлях — поза сайтом (у Docker — на томі: переживе перестворення контейнера).',
 	'GO2RTC_LOCAL_FILE_ON'         => 'Зберігати дані go2rtc у файлі',
