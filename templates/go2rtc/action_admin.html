@@ -114,9 +114,12 @@
 			<button type="submit" name="local_start" value="1" class="btn btn-default"><#LANG_GO2RTC_LOCAL_START#></button>
 			<button type="submit" name="local_restart" value="1" class="btn btn-default"><#LANG_GO2RTC_LOCAL_RESTART#></button>
 			<button type="submit" name="local_stop" value="1" class="btn btn-default"><#LANG_GO2RTC_LOCAL_STOP#></button>
+			<button type="submit" name="local_hardware" value="1" class="btn btn-default" title="<#LANG_GO2RTC_LOCAL_HARDWARE_HELP#>"><#LANG_GO2RTC_LOCAL_HARDWARE#></button>
 			[#endif LOCAL_INSTALLED#]
 			<input type="hidden" name="tab" value="tab_settings">
 		</form>
+		[#if LOCAL_HARDWARE!=""#]<pre style="white-space:pre-wrap;word-break:break-all;margin-top:10px">[#LOCAL_HARDWARE#]</pre>[#endif LOCAL_HARDWARE#]
+		<p class="help-block" style="margin:6px 0 0"><#LANG_GO2RTC_LOCAL_HARDWARE_HELP#></p>
 		<details style="margin-top:10px"[#if LOCAL_IMPORT_ERROR!=""#] open[#endif#]><summary><#LANG_GO2RTC_LOCAL_IMPORT#></summary>
 			<p class="help-block"><#LANG_GO2RTC_LOCAL_IMPORT_HELP#></p>
 			<form action="?" method="post" enctype="multipart/form-data">
