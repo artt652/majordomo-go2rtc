@@ -466,11 +466,18 @@ function go2rtcLocalConfig()
     if (go2rtcLocalApiLimited()) {
         $api['allow_paths'] = go2rtcLocalAllowPaths();
     }
+    $webrtc = array('listen' => ':' . $s['webrtc_port']);
+    // «Адрес go2rtc для устройств» задан — это адрес, по которому браузер и устройства достучатся до go2rtc (в Docker
+    // go2rtc знает только адрес контейнера): указать его go2rtc как кандидата WebRTC, иначе видео не идёт, остаются снимки
+    $device = (string)parse_url(go2rtcConfig()['device_url'], PHP_URL_HOST);
+    if ($device != '') {
+        $webrtc['candidates'] = array((strpos($device, ':') !== false ? '[' . $device . ']' : $device) . ':' . $s['webrtc_port']);
+    }
     $config = array(
         'log' => array('level' => 'info'),
         'api' => $api,
         'rtsp' => $rtsp,
-        'webrtc' => array('listen' => ':' . $s['webrtc_port']),
+        'webrtc' => $webrtc,
         'ffmpeg' => array('bin' => $ffmpeg),
     );
     $streams = array();
