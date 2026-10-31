@@ -31,6 +31,8 @@
 	.g2-cap small { color: #9aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: right; }
 	.g2-gear { color: #9aa; text-decoration: none; font-size: 16px; line-height: 1; background: none; border: 0; padding: 0; cursor: pointer;
 		width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+	.g2-hd { width: auto; font-size: 11px; font-weight: bold; padding: 0 2px; }
+	.g2-hd.on { color: #4af; }
 	.g2-gear:hover, .g2-gear:focus { color: #fff; text-decoration: none; }
 	.g2-tile .go2rtc-live::after { content: '\25CF'; position: absolute; left: 8px; top: 4px; color: #e33; font-size: 14px; }
 	/* поделиться — поверх снимка, сетку не сдвигает */
@@ -74,6 +76,7 @@
 		<div class="g2-box" data-off="<#LANG_GO2RTC_CAM_OFFLINE#>"></div>
 		<div class="g2-cap"><b>[#TITLE#]</b><small title="[#WHO#]">[#if LINKED!=""#]🔗 [#LINKED#] · [#endif LINKED#][#WHO#]</small>
 			[#if AUDIO="1"#]<button type="button" class="g2-gear g2-sound" title="<#LANG_GO2RTC_SOUND_ON#>">🔇</button>[#endif AUDIO#]
+			[#if HAS_HQ="1"#]<button type="button" class="g2-gear g2-hd" title="<#LANG_GO2RTC_HD#>">HD</button>[#endif HAS_HQ#]
 			<button type="button" class="g2-gear g2-full" title="<#LANG_GO2RTC_FULLSCREEN#>">⛶</button>
 			<button type="button" class="g2-gear g2-share-open" title="<#LANG_GO2RTC_SHARE#>">⤴</button>
 			<a href="?camera_id=[#ID#]" class="g2-gear" title="<#LANG_GO2RTC_CAMERA_SETTINGS#>" onclick="event.stopPropagation();">⚙</a></div>
@@ -399,7 +402,7 @@
 		});
 
 		// сетка: снимки, пока вкладка открыта и страница видна; нажатие на плитку — живое видео в ней (ещё раз — снова снимки)
-		var wait = [#WAIT#] || 6, tiles = [], gridOn = false, playing = [];
+		var wait = [#WAIT#] || 6, tiles = [], gridOn = false, playing = [], hd = [];
 		var tileList = document.querySelectorAll('.g2-tile');
 
 		// размер плиток: ползунок, запоминается в cookie (панель управления очищает localStorage при каждом открытии);
@@ -455,12 +458,14 @@
 			if (tiles[i]) tiles[i].stop();
 			box.innerHTML = '';
 			box.className = 'g2-box';
+			// HD — поток высокого качества камеры вместо основного
+			var q = !!hd[i];
 			tiles[i] = isLive
-				? go2rtcViewer(box, {poster: poster, frame: tile.getAttribute('data-frame'), whep: tile.getAttribute('data-whep-main'), live: true,
+				? go2rtcViewer(box, {poster: poster, frame: tile.getAttribute(q ? 'data-frame-hq' : 'data-frame'), whep: tile.getAttribute(q ? 'data-whep' : 'data-whep-main'), live: true,
 					audio: tile.getAttribute('data-audio') == '1', muted: !withSound, onmute: function (m) { soundIcon(sound, m); },
-					direct: direct ? {base: direct, src: tile.getAttribute('data-name')} : null, player: player,
+					direct: direct ? {base: direct, src: tile.getAttribute(q ? 'data-hq' : 'data-name')} : null, player: player,
 					width: Math.max(640, snapW), interval: 3000, wait: wait})
-				: go2rtcViewer(box, {poster: poster, frame: tile.getAttribute('data-frame'), width: snapW, interval: 3000, wait: wait, lazy: true});
+				: go2rtcViewer(box, {poster: poster, frame: tile.getAttribute(q ? 'data-frame-hq' : 'data-frame'), width: snapW, interval: 3000, wait: wait, lazy: true});
 		}
 		// страница скрыта (окно свёрнуто, другая вкладка) или развёрнута плитка: снимки останавливаются сразу, а живое видео —
 		// только через 5 минут; вернулись раньше — подключение то же, без нового
@@ -554,6 +559,18 @@
 					tileView(i, true, true);
 					soundIcon(sound, false);
 				}
+			});
+			// HD: переключить плитку на поток высокого качества (и обратно); не играла — играет сразу
+			var hdBtn = tile.querySelector('.g2-hd');
+			if (hdBtn) hdBtn.addEventListener('click', function (e) {
+				e.stopPropagation();
+				if (!gridOn) return;
+				var sound = !!(tiles[i] && playing[i] && !tiles[i].mute());
+				hd[i] = !hd[i];
+				hdBtn.classList.toggle('on', hd[i]);
+				playing[i] = true;
+				tileView(i, true, sound);
+				soundIcon(tile.querySelector('.g2-sound'), !sound);
 			});
 			tile.querySelector('.g2-full').addEventListener('click', function (e) {
 				e.stopPropagation();

@@ -287,7 +287,7 @@ class go2rtc extends module
                 $hq = go2rtcCameraHq($name);
                 $grid = array('ID' => (int)$row['ID'], 'NAME' => $h($name), 'TITLE' => $h($row['TITLE']), 'HIDDEN' => (int)$row['HIDDEN'],
                     'FRAME' => $h(go2rtcSignedUrl('frame', $name, $exp)), 'FRAME_HQ' => $h(go2rtcSignedUrl('frame', $hq, $exp)),
-                    'WHEP' => $h(go2rtcViewWhep($hq, $exp)), 'WHEP_MAIN' => $h(go2rtcViewWhep($name, $exp)), 'AUDIO' => isset($row['AUDIO']) ? (int)$row['AUDIO'] : 1, 'HQ' => $h($hq), 'LINKED' => $h($row['LINKED_OBJECT']),
+                    'WHEP' => $h(go2rtcViewWhep($hq, $exp)), 'WHEP_MAIN' => $h(go2rtcViewWhep($name, $exp)), 'AUDIO' => isset($row['AUDIO']) ? (int)$row['AUDIO'] : 1, 'HQ' => $h($hq), 'HAS_HQ' => ($hq != $name) ? 1 : 0, 'LINKED' => $h($row['LINKED_OBJECT']),
                     'WHO' => $h($who), 'RULE' => go2rtcRuleDefined($row['ID']) ? 1 : 0);
                 if (!(int)$row['HIDDEN']) {
                     $out['GRID'][] = $grid;
@@ -472,6 +472,13 @@ class go2rtc extends module
         $exp = time() + 12 * 3600;
         $out['CAMERA_FRAME'] = $h(go2rtcSignedUrl('frame', $camera['NAME'], $exp));
         $out['CAMERA_WHEP'] = $h(go2rtcViewWhep($camera['NAME'], $exp));
+        // поток высокого качества (задан и есть в go2rtc) — кнопка HD у превью
+        $camera_hq = go2rtcCameraHq($camera['NAME']);
+        if ($camera_hq != $camera['NAME']) {
+            $out['CAMERA_HQ'] = $h($camera_hq);
+            $out['CAMERA_FRAME_HQ'] = $h(go2rtcSignedUrl('frame', $camera_hq, $exp));
+            $out['CAMERA_WHEP_HQ'] = $h(go2rtcViewWhep($camera_hq, $exp));
+        }
         $out['WAIT'] = (int)go2rtcConfig()['wait'];
         $out['DIRECT'] = $h(go2rtcDirectBase());
         // код вставки в сцену (подпись — название камеры, переименование подхватится само); скобки — сущностями, иначе шаблонизатор панели выполнит его прямо здесь
