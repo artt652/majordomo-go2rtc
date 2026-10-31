@@ -19,7 +19,29 @@
 	<!-- превью: снимки; нажатие — живое видео (ещё раз — снова снимки) -->
 	<div class="g2-preview-wrap">
 		<div class="g2-camera-preview" id="g2_preview" data-frame="[#CAMERA_FRAME#]" data-whep="[#CAMERA_WHEP#]" data-name="[#CAMERA_NAME#]" data-off="<#LANG_GO2RTC_CAM_OFFLINE#>" title="<#LANG_GO2RTC_CAM_LIVE#>"></div>
-		[#if CAMERA_AUDIO="1"#]<button type="button" class="g2-preview-sound" id="g2_preview_sound" title="<#LANG_GO2RTC_SOUND_ON#>">🔇</button>[#endif CAMERA_AUDIO#]
+	</div>
+	<!-- то же меню, что у плитки в списке камер: звук, на весь экран, поделиться -->
+	<div class="g2-cap g2-camera-cap">
+		<span class="g2-spacer"></span>
+		[#if CAMERA_AUDIO="1"#]<button type="button" class="g2-gear" id="g2_preview_sound" title="<#LANG_GO2RTC_SOUND_ON#>">🔇</button>[#endif CAMERA_AUDIO#]
+		<button type="button" class="g2-gear" id="g2_preview_full" title="<#LANG_GO2RTC_FULLSCREEN#>">⛶</button>
+		<button type="button" class="g2-gear" id="g2_preview_share" title="<#LANG_GO2RTC_SHARE#>">⤴</button>
+	</div>
+	<form action="?" method="post" class="g2-share" id="g2_cshare" style="padding:0 0 10px">
+		<span><#LANG_GO2RTC_SHARE_GUEST#></span>
+		<select name="share_minutes" class="form-control input-sm">
+			<option value="15">15 <#LANG_GO2RTC_MIN#></option><option value="60" selected>1 <#LANG_GO2RTC_HOUR#></option>
+			<option value="360">6 <#LANG_GO2RTC_HOURS#></option><option value="1440">1 <#LANG_GO2RTC_DAY#></option><option value="10080">7 <#LANG_GO2RTC_DAYS#></option>
+		</select>
+		<button type="submit" name="guest_create" value="1" class="btn btn-primary btn-sm"><#LANG_GO2RTC_CREATE_LINK#></button>
+		[#if WEBTORRENT="1"#]<button type="submit" name="wt_create" value="1" class="btn btn-default btn-sm">WebTorrent</button>[#endif WEBTORRENT#]
+		<input type="hidden" name="share_cam" value="[#CAMERA_NAME#]">
+	</form>
+	<!-- на весь экран: заголовок; сам превью-элемент разворачивается поверх страницы — подключение то же -->
+	<div class="g2-live" id="g2_cfull">
+		<header><b>📹 [#CAMERA_TITLE#]</b><span id="g2_cfull_state"></span>
+			[#if CAMERA_AUDIO="1"#]<button type="button" id="g2_cfull_sound" style="font-size:20px"></button>[#endif CAMERA_AUDIO#]
+			<button type="button" id="g2_cfull_close" aria-label="<#LANG_GO2RTC_CLOSE#>">×</button></header>
 	</div>
 	<p class="help-block"><#LANG_GO2RTC_STREAM#>: <code>[#CAMERA_NAME#]</code>[#if CAMERA_CHECKED!=""#] · [#if CAMERA_ONLINE="1"#]<#LANG_GO2RTC_ONLINE#>[#else CAMERA_ONLINE#]<#LANG_GO2RTC_OFFLINE#>[#endif CAMERA_ONLINE#] ([#CAMERA_CHECKED#])[#endif CAMERA_CHECKED#]</p>
 	<!-- проба: go2rtc подключается к источнику и показывает кодеки, звук и микрофон -->
@@ -193,8 +215,9 @@
 	.g2-preview-wrap { position: relative; }
 	.g2-camera-preview { background: #111; border-radius: 6px; overflow: hidden; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
 	.g2-camera-preview.go2rtc-live::after { content: '\25CF'; position: absolute; left: 8px; top: 4px; color: #e33; font-size: 14px; }
-	.g2-preview-sound { position: absolute; right: 6px; top: 6px; z-index: 1; width: 32px; height: 32px; border: 0; border-radius: 16px;
-		background: rgba(0,0,0,.5); color: #fff; font-size: 16px; line-height: 1; padding: 0; cursor: pointer; }
+	.g2-camera-cap { background: #111; border-radius: 6px; margin-top: 6px; justify-content: flex-end; }
+	.g2-camera-cap .g2-spacer { flex: 1; }
+	#g2_cshare { color: #555; }
 	.g2-camera-preview img, .g2-camera-preview video { width: 100%; height: 100%; object-fit: contain; }
 	.g2-camera-preview.go2rtc-off img { opacity: .35; }
 	.g2-camera-preview.go2rtc-off::after { content: attr(data-off); position: absolute; color: #ddd; }
@@ -219,6 +242,7 @@
 			if (!snd) return;
 			snd.textContent = m ? '🔇' : '🔊';
 			snd.title = m ? texts.on : texts.off;
+			fsIcon(m);
 		}
 		function start(isLive, withSound) {
 			var poster = go2rtcViewer.capture(box);   // прошлый кадр — без чёрного экрана
@@ -230,11 +254,36 @@
 				live: isLive, whep: box.getAttribute('data-whep'), audio: !!snd, muted: !withSound, onmute: icon,
 				direct: direct ? {base: direct, src: box.getAttribute('data-name')} : null, player: player});
 		}
-		box.addEventListener('click', function () { start(!live); });
+		box.addEventListener('click', function () { if (!box.classList.contains('g2-full-box')) start(!live); });
 		if (snd) snd.addEventListener('click', function () {
 			if (live && view) view.mute(!view.mute());
 			else start(true, true);
 		});
+		// на весь экран: тот же элемент, видео не переподключается; снимки — сначала живое видео
+		var layer = document.getElementById('g2_cfull'), fsound = document.getElementById('g2_cfull_sound'), fstate = document.getElementById('g2_cfull_state');
+		function fsIcon(m) {
+			if (!fsound) return;
+			fsound.textContent = m ? '🔇' : '🔊';
+			fsound.title = m ? texts.on : texts.off;
+		}
+		function openFull() {
+			if (!live) start(true);
+			box.classList.add('g2-full-box');
+			layer.classList.add('on');
+			fstate.textContent = '<#LANG_GO2RTC_CAM_LIVE#>';
+			fsIcon(view ? view.mute() : true);
+		}
+		function closeFull() {
+			box.classList.remove('g2-full-box');
+			layer.classList.remove('on');
+		}
+		document.getElementById('g2_preview_full').addEventListener('click', openFull);
+		document.getElementById('g2_cfull_close').addEventListener('click', closeFull);
+		if (fsound) fsound.addEventListener('click', function () { if (view) { view.mute(!view.mute()); fsIcon(view.mute()); } });
+		document.addEventListener('keydown', function (e) { if (e.key == 'Escape' && layer.classList.contains('on')) closeFull(); });
+		// поделиться: форма гостевой ссылки под превью
+		var share = document.getElementById('g2_cshare');
+		document.getElementById('g2_preview_share').addEventListener('click', function () { share.classList.toggle('on'); });
 		start(false);
 	})();
 </script>
