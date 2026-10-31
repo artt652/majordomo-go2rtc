@@ -196,6 +196,13 @@ function go2rtcStreams()
         return $names;
     }
     $names = array();
+    if ($cfg['local'] && function_exists('go2rtcLocalApiLimited') && go2rtcLocalApiLimited()) {
+        // /api/streams закрыт (allow_paths): потоки — те, что заданы конфигом, камеры модуля и файл данных
+        $names = array_values(array_unique(array_merge(array_keys(go2rtcLocalStreams()), go2rtcLocalFileStreams())));
+        natcasesort($names);
+        $names = array_values($names);
+        return $names;
+    }
     $data = json_decode(go2rtcRequest('GET', 'api/streams', array(), null, '', $code), true);
     if ($code == 200 && is_array($data)) {
         foreach (array_keys($data) as $name) {
@@ -252,8 +259,8 @@ function go2rtcUrl($name, $format = 'rtsp')
     }
     if ($cfg['local'] && $format != 'webrtc' && function_exists('go2rtcLocalApiLocked') && go2rtcLocalApiLocked()) {
         // API встроенного go2rtc из сети — по паролю, а пароль API устройству давать нельзя (это доступ к конфигу):
-        // кадр — через сервер (подписанная ссылка на час), поток — RTSP
-        return ($format == 'frame') ? go2rtcSignedUrl('frame', $name, time() + 3600, true) : go2rtcUrl($name, 'rtsp');
+        // кадр и потоки HTTP — через сервер (PHP, подписанная ссылка на час)
+        return in_array($format, array('frame', 'mp4', 'hls', 'mjpeg'), true) ? go2rtcSignedUrl($format, $name, time() + 3600, true) : '';
     }
     if ($format == 'mp4') {
         // fMP4 по HTTP: плееры без RTSP (VLC без live555, Chromecast, DLNA)
@@ -273,6 +280,120 @@ function go2rtcUrl($name, $format = 'rtsp')
         return go2rtcSignedUrl('whep', $name, time() + 3600, true);
     }
     return '';
+}
+
+// Поток go2rtc через сервер (для устройств, когда API go2rtc закрыт паролем): mp4 и mjpeg передаются по мере поступления,
+// hls — плейлист с переписанными ссылками на сегменты (каждый сегмент — снова через сервер, по той же подписи).
+// Каждый зритель занимает процесс PHP, пока смотрит. $sub — запрос сегмента HLS (hls/segment.m4s?id=…), иначе ''
+function go2rtcStreamProxy($op, $name, $sub = '', $exp = 0, $sig = '')
+{
+    $cfg = go2rtcConfig();
+    if ($cfg['url'] == '' || !function_exists('curl_init') || go2rtcDown($name)) {
+        header('HTTP/1.1 504 Gateway Timeout');
+        exit;
+    }
+    $query = array('src' => $name);
+    $path = 'api/stream.' . $op;
+    if ($op == 'hls') {
+        // сегменты и плейлисты сеанса: только эти адреса и только с id сеанса
+        if ($sub != '') {
+            if (!preg_match('#^hls/(playlist\.m3u8|init\.mp4|segment\.m4s|segment\.ts)\?id=([0-9a-zA-Z]{1,64})(&n=([0-9]{1,12}))?$#', $sub, $m)) {
+                header('HTTP/1.1 404 Not Found');
+                exit;
+            }
+            $path = 'api/hls/' . $m[1];
+            $query = array('id' => $m[2]);
+            if (!empty($m[4])) {
+                $query['n'] = $m[4];
+            }
+        } else {
+            $path = 'api/stream.m3u8';
+            $query['mp4'] = '';
+        }
+        $body = go2rtcRequest('GET', $path, $query, null, '', $code, $cfg['wait'] + 4, $type);
+        if ($code != 200) {
+            header('HTTP/1.1 ' . ($code == 404 ? '404 Not Found' : '502 Bad Gateway'));
+            exit;
+        }
+        if (stripos((string)$type, 'mpegurl') !== false) {
+            $body = go2rtcHlsRewrite($body, $name, $exp, $sig);
+        }
+        header('Content-Type: ' . ($type != '' ? $type : 'application/octet-stream'));
+        echo $body;
+        exit;
+    }
+    // потоком: mp4, mjpeg
+    @set_time_limit(0);
+    ignore_user_abort(false);
+    while (ob_get_level()) {
+        @ob_end_clean();
+    }
+    header('X-Accel-Buffering: no');
+    $sent = false;
+    $type = '';
+    $status = 0;
+    $ch = curl_init($cfg['url'] . '/' . $path . '?' . http_build_query($query));
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 0);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+    if ($cfg['user'] != '') {
+        curl_setopt($ch, CURLOPT_USERPWD, $cfg['user'] . ':' . $cfg['password']);
+    }
+    curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($ch, $line) use (&$type, &$status, &$sent) {
+        if (preg_match('#^HTTP/\S+\s+(\d+)#', $line, $m)) {
+            $status = (int)$m[1];
+        } elseif (stripos($line, 'content-type:') === 0) {
+            $type = trim(substr($line, 13));
+        } elseif (trim($line) === '' && $status == 200 && !$sent) {
+            // заголовки go2rtc получены — сразу отдать клиенту, не дожидаясь первого кадра
+            header('Content-Type: ' . ($type != '' ? $type : 'application/octet-stream'));
+            $sent = true;
+            flush();
+        }
+        return strlen($line);
+    });
+    curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($ch, $data) use (&$sent, &$status) {
+        if (!$sent || $status != 200) {
+            return 0;
+        }
+        echo $data;
+        flush();
+        return connection_aborted() ? 0 : strlen($data);
+    });
+    curl_exec($ch);
+    curl_close($ch);
+    if (!$sent) {
+        header('HTTP/1.1 502 Bad Gateway');
+    }
+    exit;
+}
+
+// Плейлист HLS go2rtc: ссылки (hls/playlist.m3u8?id=…, init.mp4?id=…, segment.m4s?id=…&n=…) — на этот же модуль с подписью
+function go2rtcHlsRewrite($text, $name, $exp, $sig)
+{
+    $link = function ($url) use ($name, $exp, $sig) {
+        // относительные адреса: из главного плейлиста — hls/…, из плейлиста сеанса — рядом (init.mp4, segment.*)
+        $sub = (strpos($url, 'hls/') === 0) ? $url : 'hls/' . $url;
+        if (!preg_match('#^hls/(playlist\.m3u8|init\.mp4|segment\.m4s|segment\.ts)\?id=[0-9a-zA-Z]{1,64}(&n=[0-9]{1,12})?$#', $sub)) {
+            return $url;
+        }
+        return go2rtcServerBase() . ROOTHTML . 'api.php/module/go2rtc/hls?src=' . rawurlencode($name) . '&exp=' . (int)$exp
+            . '&sig=' . $sig . '&p=' . rawurlencode($sub);
+    };
+    $lines = preg_split('/\r?\n/', (string)$text);
+    foreach ($lines as $i => $line) {
+        if ($line === '') {
+            continue;
+        }
+        if ($line[0] == '#') {
+            $lines[$i] = preg_replace_callback('/URI="([^"]+)"/', function ($m) use ($link) {
+                return 'URI="' . $link($m[1]) . '"';
+            }, $line);
+        } else {
+            $lines[$i] = $link($line);
+        }
+    }
+    return implode("\n", $lines);
 }
 
 // Секрет модуля для подписи ссылок (создаётся при первом обращении)
@@ -308,12 +429,14 @@ function go2rtcServerBase()
     return rtrim($server, '/');
 }
 
-// Подписанная ссылка модуля на кадр ('frame') или согласование WebRTC ('whep') камеры до $exp.
+// Подписанная ссылка модуля на кадр ('frame'), согласование WebRTC ('whep') или поток через сервер
+// ('mp4', 'hls', 'mjpeg' — по ним сервер сам читает go2rtc и отдаёт поток дальше) камеры до $exp.
 // Права проверяет тот, кто ссылку выдаёт (страница «Сообщения», панель, Lovelace); модуль — только подпись и срок.
 // $absolute — с адресом сервера (для устройств), иначе от корня сайта (для страницы в браузере)
 function go2rtcSignedUrl($op, $name, $exp, $absolute = false)
 {
-    $path = ROOTHTML . 'api.php/module/go2rtc/' . (($op == 'whep') ? 'whep' : 'frame')
+    $op = in_array($op, array('whep', 'mp4', 'hls', 'mjpeg'), true) ? $op : 'frame';
+    $path = ROOTHTML . 'api.php/module/go2rtc/' . $op
         . '?src=' . rawurlencode($name) . '&exp=' . (int)$exp . '&sig=' . go2rtcSign($name, (int)$exp);
     return ($absolute ? go2rtcServerBase() : '') . $path;
 }
@@ -323,6 +446,9 @@ function go2rtcSignedUrl($op, $name, $exp, $absolute = false)
 function go2rtcProbe($name)
 {
     $cfg = go2rtcConfig();
+    if ($cfg['local'] && function_exists('go2rtcLocalApiLimited') && go2rtcLocalApiLimited()) {
+        return array('ok' => false, 'error' => go2rtcLang('GO2RTC_PROBE_LIMIT'), 'text' => '', 'json' => '');
+    }
     $body = go2rtcRequest('GET', 'api/streams', array('src' => $name, 'video' => 'all', 'audio' => 'all', 'microphone' => ''),
         null, '', $code, max(8, $cfg['wait'] + 4));
     $data = json_decode((string)$body, true);

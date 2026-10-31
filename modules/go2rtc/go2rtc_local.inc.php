@@ -79,6 +79,7 @@ function go2rtcLocalSettings()
         'file' => $get('GO2RTC_FILE') == '1',
         'file_path' => $get('GO2RTC_FILE_PATH', go2rtcLocalDir() . '/go2rtc.yaml.php'),
         'api_auth' => $get('GO2RTC_API_AUTH') == '1',
+        'api_limit' => $get('GO2RTC_API_LIMIT') == '1',
         'api_user' => $get('GO2RTC_API_LOCAL_USER', 'admin'),
         'api_password' => $get('GO2RTC_API_LOCAL_PASSWORD'),
     );
@@ -105,11 +106,26 @@ function go2rtcLocalApiLocked()
     return $s['api_lan'] && $s['api_auth'];
 }
 
-// Опасное сочетание: файл данных + API в сети без пароля (/api/config открыт сети)
-function go2rtcLocalApiOpenFile()
+// API в сети без пароля: любой в сети может ходить в API go2rtc (предупреждение под настройкой пароля)
+function go2rtcLocalApiOpen()
 {
     $s = go2rtcLocalSettings();
-    return $s['file'] && $s['api_lan'] && !$s['api_auth'];
+    return $s['api_lan'] && !$s['api_auth'];
+}
+
+// API из сети ограничено списком путей (api: allow_paths): нет /api/config, /api/streams, журнала и веб-интерфейса go2rtc
+function go2rtcLocalApiLimited()
+{
+    $s = go2rtcLocalSettings();
+    return $s['api_lan'] && $s['api_limit'];
+}
+
+// Пути, оставленные в API при ограничении: только просмотр (кадр, потоки, WebRTC) и /api для проверки связи.
+// Адреса в allow_paths go2rtc сравнивает целиком, с ведущим /
+function go2rtcLocalAllowPaths()
+{
+    return array('/api', '/api/ws', '/api/webrtc', '/api/frame.jpeg', '/api/frame.mp4', '/api/stream.mp4', '/api/stream.mjpeg',
+        '/api/stream.m3u8', '/api/hls/playlist.m3u8', '/api/hls/init.mp4', '/api/hls/segment.m4s', '/api/hls/segment.ts');
 }
 
 function go2rtcLocalDir()
@@ -388,7 +404,7 @@ function go2rtcLocalSource($camera, $hq = false)
 function go2rtcLocalConfigOnly($src)
 {
     $s = go2rtcLocalSettings();
-    return $s['file'] || go2rtcLocalApiRejects($src);
+    return $s['file'] || go2rtcLocalApiLimited() || go2rtcLocalApiRejects($src);
 }
 
 // go2rtc через API такой источник не примет (exec:, echo:, expr:, пробелы)
@@ -446,6 +462,9 @@ function go2rtcLocalConfig()
     if (go2rtcLocalApiLocked()) {
         $api['username'] = $s['api_user'];
         $api['password'] = $s['api_password'] != '' ? $s['api_password'] : go2rtcLocalApiPassword();
+    }
+    if (go2rtcLocalApiLimited()) {
+        $api['allow_paths'] = go2rtcLocalAllowPaths();
     }
     $config = array(
         'log' => array('level' => 'info'),
@@ -698,6 +717,9 @@ function go2rtcLocalTest($src)
     }
     if (go2rtcLocalApiRejects($src)) {
         return array('ok' => false, 'error' => go2rtcLang('GO2RTC_LOCAL_TEST_CONFIG'));
+    }
+    if (go2rtcLocalApiLimited()) {
+        return array('ok' => false, 'error' => go2rtcLang('GO2RTC_LOCAL_TEST_LIMIT'));
     }
     if (!go2rtcLocalPing()) {
         return array('ok' => false, 'error' => go2rtcLang('GO2RTC_LOCAL_NOT_RUNNING'));
