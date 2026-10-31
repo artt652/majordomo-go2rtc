@@ -98,6 +98,7 @@ class go2rtc extends module
             }
             $this->config['GO2RTC_FILE_PATH'] = $path;
             $this->config['GO2RTC_API_AUTH'] = gr('go2rtc_api_auth', 'int') ? '1' : '0';
+            $this->config['GO2RTC_API_LIMIT'] = gr('go2rtc_api_limit', 'int') ? '1' : '0';
             $user = trim((string)gr('go2rtc_api_local_user'));
             $this->config['GO2RTC_API_LOCAL_USER'] = ($user != '') ? $user : 'admin';
             $password = (string)gr('go2rtc_api_local_password');
@@ -227,7 +228,8 @@ class go2rtc extends module
             if ($ls['api_auth'] && $ls['api_password'] == '') {
                 $out['GO2RTC_API_LOCAL_PASSWORD'] = $h(go2rtcLocalApiPassword());
             }
-            $out['LOCAL_OPEN_FILE'] = go2rtcLocalApiOpenFile() ? 1 : 0;
+            $out['LOCAL_API_OPEN'] = go2rtcLocalApiOpen() ? 1 : 0;
+            $out['GO2RTC_API_LIMIT'] = $ls['api_limit'] ? 1 : 0;
             $out['LOCAL_LOCKED'] = go2rtcLocalApiLocked() ? 1 : 0;
             if ($ls['api_lan']) {
                 $ip = function_exists('getLocalIp') ? getLocalIp() : '';
@@ -388,7 +390,7 @@ class go2rtc extends module
                         }
                     }
                 }
-                $out['CAMERA_RESTART'] = $restart ? (go2rtcLocalSettings()['file'] ? 2 : 1) : 0;
+                $out['CAMERA_RESTART'] = $restart ? ((go2rtcLocalSettings()['file'] || go2rtcLocalApiLimited()) ? 2 : 1) : 0;
                 @unlink(ROOT . 'cms/cached/go2rtc_streams.json');
             }
         }
@@ -617,6 +619,14 @@ class go2rtc extends module
                 exit;
             }
             go2rtcWhepProxy($cam);
+        }
+        if ($op == 'mp4' || $op == 'mjpeg' || $op == 'hls') {
+            // потоки HTTP через сервер — только по подписи (не по гостевой ссылке)
+            if ($cam == '' || $id != '') {
+                header('HTTP/1.1 404 Not Found');
+                exit;
+            }
+            go2rtcStreamProxy($op, $cam, isset($params['p']) ? (string)$params['p'] : '', (int)$params['exp'], (string)$params['sig']);
         }
         if ($op == 'check') {
             header('Content-Type: application/json; charset=utf-8');

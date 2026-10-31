@@ -95,7 +95,6 @@
 			<#LANG_GO2RTC_LOCAL_STATE#>: [#if LOCAL_RUNNING!=""#]<span class="text-success"><#LANG_GO2RTC_LOCAL_RUNNING#></span>[#if LOCAL_PID!="0"#] (PID [#LOCAL_PID#])[#endif LOCAL_PID#][#else LOCAL_RUNNING#]<span class="text-danger"><#LANG_GO2RTC_LOCAL_STOPPED#></span>[#endif LOCAL_RUNNING#][#if LOCAL_ERROR!=""#] · <span class="text-danger">[#LOCAL_ERROR#]</span>[#endif LOCAL_ERROR#]<br>
 			ffmpeg: [#if LOCAL_FFMPEG_VERSION!=""#][#LOCAL_FFMPEG_VERSION#] (<code>[#LOCAL_FFMPEG#]</code>)[#else LOCAL_FFMPEG_VERSION#]<span class="text-warning"><#LANG_GO2RTC_LOCAL_NO_FFMPEG#></span>[#endif LOCAL_FFMPEG_VERSION#]
 		</p>
-		[#if LOCAL_OPEN_FILE="1"#]<div class="alert alert-danger"><#LANG_GO2RTC_LOCAL_OPEN_FILE#></div>[#endif LOCAL_OPEN_FILE#]
 		[#if LOCAL_WEB_UI!=""#]<p><#LANG_GO2RTC_LOCAL_WEB_UI#>: <a href="[#LOCAL_WEB_UI#]" target="_blank" rel="noopener">[#LOCAL_WEB_UI#]</a>[#if LOCAL_LOCKED="1"#] · <#LANG_GO2RTC_LOGIN#> <code>[#GO2RTC_API_LOCAL_USER#]</code>, <#LANG_GO2RTC_PASSWORD#> <code>[#GO2RTC_API_LOCAL_PASSWORD#]</code>[#endif LOCAL_LOCKED#]</p>[#endif LOCAL_WEB_UI#]
 		[#if LOCAL_FILE!=""#]<p><#LANG_GO2RTC_LOCAL_FILE#>: <code style="word-break:break-all;white-space:normal">[#LOCAL_FILE#]</code> ([#LOCAL_FILE_SIZE#] B)[#if LOCAL_FILE_STREAMS!=""#]<br><#LANG_GO2RTC_LOCAL_FILE_STREAMS#>: [#LOCAL_FILE_STREAMS#][#endif LOCAL_FILE_STREAMS#]</p>[#endif LOCAL_FILE#]
 		[#if LOCAL_IMPORTED="1"#]<div class="alert alert-success"><#LANG_GO2RTC_LOCAL_IMPORTED#></div>[#endif LOCAL_IMPORTED#]
@@ -150,7 +149,7 @@
 <div class="form-group">
 	<label class="col-sm-4 col-md-3 control-label g2-empty">&nbsp;</label>
 	<div class="col-sm-8 col-md-6">
-		<div class="checkbox"><label><input type="checkbox" name="go2rtc_api_lan" value="1"[#if GO2RTC_API_LAN="1"#] checked[#endif#]> <#LANG_GO2RTC_LOCAL_API_LAN#></label></div>
+		<div class="checkbox"><label><input type="checkbox" name="go2rtc_api_lan" value="1" id="g2_api_lan"[#if GO2RTC_API_LAN="1"#] checked[#endif#]> <#LANG_GO2RTC_LOCAL_API_LAN#></label></div>
 		<p class="help-block"><#LANG_GO2RTC_LOCAL_API_LAN_HELP#></p>
 	</div>
 </div>
@@ -158,6 +157,14 @@
 	<label class="col-sm-4 col-md-3 control-label g2-empty">&nbsp;</label>
 	<div class="col-sm-8 col-md-6">
 		<div class="checkbox"><label><input type="checkbox" name="go2rtc_api_auth" value="1" id="g2_api_auth"[#if GO2RTC_API_AUTH="1"#] checked[#endif#]> <#LANG_GO2RTC_LOCAL_API_AUTH#></label></div>
+		<div class="alert alert-danger" id="g2_api_open"[#if LOCAL_API_OPEN!="1"#] style="display:none"[#endif#]><#LANG_GO2RTC_LOCAL_API_OPEN#></div>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label g2-empty">&nbsp;</label>
+	<div class="col-sm-8 col-md-6">
+		<div class="checkbox"><label><input type="checkbox" name="go2rtc_api_limit" value="1"[#if GO2RTC_API_LIMIT="1"#] checked[#endif#]> <#LANG_GO2RTC_LOCAL_API_LIMIT#></label></div>
+		<p class="help-block"><#LANG_GO2RTC_LOCAL_API_LIMIT_HELP#></p>
 	</div>
 </div>
 <div class="form-group">
@@ -528,6 +535,16 @@
 		}
 		Array.prototype.forEach.call(document.querySelectorAll('.g2-mode'), function (r) { r.addEventListener('change', modeFields); });
 		modeFields();
+
+		// предупреждение под паролем API: видно, пока API доступен из сети и пароль не включён
+		function apiOpen() {
+			var lan = document.getElementById('g2_api_lan'), auth = document.getElementById('g2_api_auth'), w = document.getElementById('g2_api_open');
+			if (w && lan && auth) w.style.display = (lan.checked && !auth.checked) ? '' : 'none';
+		}
+		['g2_api_lan', 'g2_api_auth'].forEach(function (id) {
+			var el = document.getElementById(id);
+			if (el) el.addEventListener('change', apiOpen);
+		});
 
 		var start = '[#TAB#]' || (location.hash || '').substr(1);
 		show(start && document.getElementById(start) ? start : 'tab_cameras');
