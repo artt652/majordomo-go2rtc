@@ -268,6 +268,7 @@ class go2rtc extends module
         $out['WEBTORRENT'] = $out['GO2RTC_WEBTORRENT'];
         $out['ENABLED'] = go2rtcEnabled() ? 1 : 0;
         $out['DIRECT'] = $h(go2rtcDirectBase());
+        $out['UI_SCRIPT'] = go2rtcUiScript();
         $cfg = go2rtcConfig();
         $out['WAIT'] = (int)$cfg['wait'];
         $out['CAMERAS'] = array();
@@ -487,6 +488,7 @@ class go2rtc extends module
         }
         $out['WAIT'] = (int)go2rtcConfig()['wait'];
         $out['DIRECT'] = $h(go2rtcDirectBase());
+        $out['UI_SCRIPT'] = go2rtcUiScript();
         // код вставки в сцену (подпись — название камеры, переименование подхватится само); скобки — сущностями, иначе шаблонизатор панели выполнит его прямо здесь
         foreach (array('snapshot' => 'EMBED_SNAPSHOT', 'live' => 'EMBED_LIVE') as $mode => $key) {
             // имя потока; с кавычками, «#», скобками — номер камеры (вставка понимает оба)
@@ -548,7 +550,7 @@ class go2rtc extends module
         $flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
         $html = '';
         if ($n == 1) {
-            $html .= '<script src="' . $h(ROOTHTML . 'templates/go2rtc/js/viewer.js') . '"></script>'
+            $html .= '<script src="' . $h(ROOTHTML . 'templates/go2rtc/js/viewer.js') . '"></script><script>' . go2rtcUiScript() . '</script>'
                 . '<style>.go2rtc-embed{position:relative;background:#111;border-radius:6px;overflow:hidden;cursor:pointer}'
                 . '.go2rtc-embed .go2rtc-view{display:flex;align-items:center;justify-content:center;width:100%;height:100%}'
                 . '.go2rtc-embed .go2rtc-off img{opacity:.35}.go2rtc-embed .go2rtc-off::after{content:attr(data-off);position:absolute;color:#ddd}'
@@ -568,7 +570,7 @@ class go2rtc extends module
             . 'function icon(m){muted=m;if(snd){snd.textContent=m?"\uD83D\uDD07":"\uD83D\uDD0A";snd.title=m?t.sound_on:t.sound_off;}}'
             . 'if(snd)snd.addEventListener("click",function(e){e.stopPropagation();if(v)v.mute(!v.mute());});'
             . 'function start(){var box=el.querySelector(".go2rtc-embed-box"),p=go2rtcViewer.capture(box);if(v)v.stop();box.innerHTML="";'
-            . 'v=go2rtcViewer(box,{poster:p,audio:L.audio,muted:muted,onmute:icon,frame:L.frame,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,live:mode=="live",width:mode=="live"?1280:640,interval:3000,lazy:true});}'
+            . 'v=go2rtcViewer(box,{ui:mode=="live",poster:p,audio:L.audio,muted:muted,onmute:icon,frame:L.frame,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,live:mode=="live",width:mode=="live"?1280:640,interval:3000,lazy:true});}'
             . 'start();if(mode!="live")el.addEventListener("click",function(){go2rtcViewer.open({title:title,poster:go2rtcViewer.capture(el),audio:L.audio,muted:startMuted,frame:L.frame_hq,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,width:1280,texts:t});});'
             // ссылки на 24 часа: каждые 6 часов — новые (с той же сессией и проверкой прав); просмотр — заново с ними, без чёрного экрана
             . 'setInterval(function(){fetch(renew,{credentials:"same-origin",cache:"no-store"}).then(function(r){return r.json();}).then(function(j){if(j&&j.frame){L=j;start();}}).catch(function(){});},6*3600*1000);'
@@ -690,12 +692,12 @@ class go2rtc extends module
         $flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE;
         echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<meta name="referrer" content="no-referrer"><title>' . $h($cam) . '</title><style>' . $style . '</style>'
-            . '<script src="' . $h(ROOTHTML . 'templates/go2rtc/js/viewer.js') . '"></script></head><body>'
+            . '<script src="' . $h(ROOTHTML . 'templates/go2rtc/js/viewer.js') . '"></script><script>' . go2rtcUiScript() . '</script></head><body>'
             . '<header><b>📹 ' . $h($cam) . '</b><span id="state"></span><span>' . $h(str_replace('%s', $until, go2rtcLang('GO2RTC_LINK_READY'))) . '</span></header>'
             . '<main id="view" data-off="' . $h($texts['offline']) . '"></main>'
             . '<script>(function(){var base=' . json_encode($base, $flags) . ',id=' . json_encode($id, $flags) . ',t=' . json_encode($texts, $flags)
             . ',expires=' . (int)$link['expires'] . ',state=document.getElementById("state");'
-            . 'var v=go2rtcViewer(document.getElementById("view"),{frame:base+"frame/"+id,whep:' . (go2rtcConfig()['view_php'] ? '""' : 'base+"whep/"+id') . ',live:true,width:1280,controls:true,audio:' . go2rtcCameraAudio($cam) . ',wait:' . (int)$cfg['wait'] . ','
+            . 'var v=go2rtcViewer(document.getElementById("view"),{frame:base+"frame/"+id,whep:' . (go2rtcConfig()['view_php'] ? '""' : 'base+"whep/"+id') . ',live:true,ui:true,width:1280,controls:true,audio:' . go2rtcCameraAudio($cam) . ',wait:' . (int)$cfg['wait'] . ','
             . 'onstate:function(s){state.textContent=s=="live"?t.live:(s=="offline"?t.offline:t.snapshot);}});state.textContent=t.snapshot;'
             . 'function gone(){v.stop();document.body.innerHTML="";var d=document.createElement("div");d.className="gone";d.textContent=t.gone;document.body.appendChild(d);}'
             . 'setInterval(function(){if(Date.now()>expires*1000)gone();},5000);'

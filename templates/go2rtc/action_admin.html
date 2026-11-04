@@ -370,6 +370,7 @@
 </div>
 [#endif CAMERA_ID#]
 <script src="<#ROOTHTML#>templates/go2rtc/js/viewer.js"></script>
+<script>[#UI_SCRIPT#]</script>
 <script type="text/javascript">
 	// скопировать ссылку
 	window.g2Copy = function (id) {
@@ -449,6 +450,16 @@
 			btn.textContent = m ? '🔇' : '🔊';
 			btn.title = m ? soundOn : soundOff;
 		}
+		// потоки камеры для переключателя в панели просмотра: обычный и HD (если у камеры есть)
+		function streamList(tile) {
+			if (!tile.querySelector('.g2-hd')) return null;
+			return [
+				{title: '<#LANG_GO2RTC_UI_SD#>', frame: tile.getAttribute('data-frame'), whep: tile.getAttribute('data-whep-main'),
+					direct: direct ? {base: direct, src: tile.getAttribute('data-name')} : null},
+				{title: '<#LANG_GO2RTC_UI_HD_NAME#>', frame: tile.getAttribute('data-frame-hq'), whep: tile.getAttribute('data-whep'),
+					direct: direct ? {base: direct, src: tile.getAttribute('data-hq')} : null}
+			];
+		}
 		function tileView(i, isLive, withSound) {
 			var tile = tileList[i], box = tile.querySelector('.g2-box'), sound = tile.querySelector('.g2-sound');
 			soundIcon(sound, true);
@@ -459,7 +470,11 @@
 			// HD — поток высокого качества камеры вместо основного
 			var q = !!hd[i];
 			tiles[i] = isLive
-				? go2rtcViewer(box, {poster: poster, frame: tile.getAttribute(q ? 'data-frame-hq' : 'data-frame'), whep: tile.getAttribute(q ? 'data-whep' : 'data-whep-main'), live: true,
+				? go2rtcViewer(box, {ui: true, streams: streamList(tile), stream: q ? 1 : 0, onstream: function (n) {
+					hd[i] = n == 1;
+					var hb = tile.querySelector('.g2-hd');
+					if (hb) hb.classList.toggle('on', hd[i]);
+				}, poster: poster, frame: tile.getAttribute(q ? 'data-frame-hq' : 'data-frame'), whep: tile.getAttribute(q ? 'data-whep' : 'data-whep-main'), live: true,
 					audio: tile.getAttribute('data-audio') == '1', muted: !withSound, onmute: function (m) { soundIcon(sound, m); },
 					direct: direct ? {base: direct, src: tile.getAttribute(q ? 'data-hq' : 'data-name')} : null, player: player,
 					width: Math.max(640, snapW), interval: 3000, wait: wait})
@@ -532,7 +547,7 @@
 			lbox.innerHTML = '';
 			state.textContent = texts.snapshot;
 			soundIcon(liveSound, true);
-			liveView = go2rtcViewer(lbox, {poster: poster, frame: tile.getAttribute('data-frame-hq'), whep: tile.getAttribute('data-whep'), live: true,
+			liveView = go2rtcViewer(lbox, {ui: true, streams: streamList(tile), stream: 1, poster: poster, frame: tile.getAttribute('data-frame-hq'), whep: tile.getAttribute('data-whep'), live: true,
 				direct: direct ? {base: direct, src: tile.getAttribute('data-hq')} : null, player: player,
 				audio: tile.getAttribute('data-audio') == '1', onmute: function (m) { soundIcon(liveSound, m); },
 				width: 1280, controls: true, wait: wait, onstate: function (s, how) {

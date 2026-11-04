@@ -68,6 +68,17 @@ function go2rtcLang($key)
     return defined('LANG_' . $key) ? constant('LANG_' . $key) : $key;
 }
 
+// Тексты панели просмотра (viewer.js, параметр ui) — JS для страницы, где подключён viewer.js: go2rtcViewer.texts = {...};
+function go2rtcUiScript()
+{
+    $texts = array();
+    foreach (array('auto', 'tcp', 'whep', 'php', 'snapshots', 'mode', 'stream', 'pause', 'play', 'shot', 'pip', 'mic', 'stats',
+        'type', 'size', 'fps', 'rate', 'rtt', 'loss', 'delay', 'connecting', 'failed', 'settings', 'unsupported') as $k) {
+        $texts[$k] = go2rtcLang('GO2RTC_UI_' . strtoupper($k));
+    }
+    return 'go2rtcViewer.texts=' . json_encode($texts, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';';
+}
+
 // --- Связь с модулем «Терминалы» (показ камеры на устройстве): только если его функции есть ---
 
 function go2rtcAddon($terminal_rec)
