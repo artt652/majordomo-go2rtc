@@ -23,6 +23,7 @@
  *                            // «картинка в картинке», микрофон, режим (авто, WebRTC, MSE, HLS, MJPEG, через сервер…),
  *                            // выбор потока и статистика. Только у живого видео. Тексты — opts.texts или go2rtcViewer.texts
  *       streams: [{title: 'SD', frame: …, whep: …, direct: {base, src}}, {title: 'HD', …}],  // потоки для переключателя (2 и больше)
+ *       uiOffset: 0,         // сдвинуть шестерёнку влево на … px (справа свои кнопки, например звук во вставках на сцене)
  *       stream: 0,           // какой из них идёт сейчас
  *       onstream: function (i) {}          // поток выбрали в панели
  *   });
@@ -576,6 +577,7 @@
 			var badge = el('div', 'g2v-badge'), gear = el('button', 'g2v-gear', '⚙');
 			gear.type = 'button';
 			gear.title = tx('settings');
+			if (opts.uiOffset) gear.style.right = (6 + opts.uiOffset) + 'px';   // место под кнопки страницы справа (звук во вставках)
 			box.appendChild(badge);
 			box.appendChild(gear);
 			var panel = el('div', 'g2v-panel'), open = false, timer = null;

@@ -570,7 +570,7 @@ class go2rtc extends module
             . 'function icon(m){muted=m;if(snd){snd.textContent=m?"\uD83D\uDD07":"\uD83D\uDD0A";snd.title=m?t.sound_on:t.sound_off;}}'
             . 'if(snd)snd.addEventListener("click",function(e){e.stopPropagation();if(v)v.mute(!v.mute());});'
             . 'function start(){var box=el.querySelector(".go2rtc-embed-box"),p=go2rtcViewer.capture(box);if(v)v.stop();box.innerHTML="";'
-            . 'v=go2rtcViewer(box,{ui:mode=="live",poster:p,audio:L.audio,muted:muted,onmute:icon,frame:L.frame,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,live:mode=="live",width:mode=="live"?1280:640,interval:3000,lazy:true});}'
+            . 'v=go2rtcViewer(box,{ui:mode=="live",uiOffset:L.audio?38:0,poster:p,audio:L.audio,muted:muted,onmute:icon,frame:L.frame,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,live:mode=="live",width:mode=="live"?1280:640,interval:3000,lazy:true});}'
             . 'start();if(mode!="live")el.addEventListener("click",function(){go2rtcViewer.open({title:title,poster:go2rtcViewer.capture(el),audio:L.audio,muted:startMuted,frame:L.frame_hq,whep:L.whep,direct:L.direct?{base:L.direct,src:L.hq}:null,player:L.player,wait:L.wait,width:1280,texts:t});});'
             // ссылки на 24 часа: каждые 6 часов — новые (с той же сессией и проверкой прав); просмотр — заново с ними, без чёрного экрана
             . 'setInterval(function(){fetch(renew,{credentials:"same-origin",cache:"no-store"}).then(function(r){return r.json();}).then(function(j){if(j&&j.frame){L=j;start();}}).catch(function(){});},6*3600*1000);'
