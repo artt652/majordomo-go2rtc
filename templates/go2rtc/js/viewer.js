@@ -662,19 +662,14 @@
 				setTimeout(function () { msg.style.display = 'none'; }, 3000);
 			}
 			function place() {
-				var r = box.getBoundingClientRect(), w = Math.min(250, window.innerWidth - 16);
-				panel.style.maxHeight = (window.innerHeight - 16) + 'px';
-				if (r.height >= 300 && r.width >= 300) {
-					// крупный просмотр — у шестерёнки
-					panel.style.left = Math.max(8, Math.min(r.right - w - 6, window.innerWidth - w - 8)) + 'px';
-					panel.style.top = Math.max(8, Math.min(r.top + 38, window.innerHeight - 120)) + 'px';
-					panel.style.transform = '';
-				} else {
-					// плитка — по центру экрана
-					panel.style.left = '50%';
-					panel.style.top = '50%';
-					panel.style.transform = 'translate(-50%,-50%)';
-				}
+				// у шестерёнки: под ней, по правому краю; не помещается снизу — над ней; всегда в пределах экрана
+				var r = gear.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, w = Math.min(250, vw - 16);
+				panel.style.maxHeight = (vh - 16) + 'px';
+				panel.style.transform = '';
+				panel.style.left = Math.max(8, Math.min(r.right - w, vw - w - 8)) + 'px';
+				var h = panel.offsetHeight, top = r.bottom + 6;
+				if (top + h > vh - 8) top = (r.top - 6 - h >= 8) ? r.top - 6 - h : Math.max(8, vh - 8 - h);
+				panel.style.top = top + 'px';
 			}
 			function fmt(m) {
 				var l = [];
@@ -717,6 +712,7 @@
 			document.addEventListener('click', outside, true);
 			document.addEventListener('keydown', esc);
 			window.addEventListener('resize', function () { if (open) place(); });
+			window.addEventListener('scroll', function () { if (open) place(); }, true);
 			timer = setInterval(tick, 1000);
 
 			return {
