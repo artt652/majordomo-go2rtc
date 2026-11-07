@@ -11,7 +11,7 @@ $dictionary = array(
 	'GO2RTC_AUDIO_HELP'            => 'On: the viewer shows a 🔇/🔊 button (video starts muted, as browsers require; 🔊 on a tile starts the video with sound). Off: no audio is requested from go2rtc.',
 	'GO2RTC_AUDIO_ON'              => 'Camera has sound',
 	'GO2RTC_CAMERA'                => 'Camera',
-	'GO2RTC_CAMERA_ACCESS_HELP'    => 'Who can see a camera is a MajorDoMo access control rule, as for terminals and menus: users, terminals (with "except"), time, property conditions. The rule applies everywhere: in the panel, in scene embeds, in other modules. The administrator sees all cameras. Scripts are not limited.',
+	'GO2RTC_CAMERA_ACCESS_HELP'    => 'Who can see a camera is a MajorDoMo <a href="?md=security_rules&inst=adm">access control</a> rule, as for terminals and menus: users, terminals (with "except"), time, property conditions. The rule applies everywhere: in the panel, in scene embeds, in other modules. The administrator sees all cameras. Scripts are not limited.',
 	'GO2RTC_CAMERA_ADMIN_ONLY'     => 'administrator only',
 	'GO2RTC_CAMERA_EVERYONE'       => 'Everyone',
 	'GO2RTC_CAMERA_NAME'           => 'Name',
