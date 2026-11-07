@@ -69,18 +69,23 @@ class go2rtc extends module
         };
         $out['TAB'] = '';
         if (gr('go2rtc_save')) {
-            foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_LOCAL_DEVICE_URL', 'GO2RTC_LINK_URL', 'GO2RTC_RTSP_USER', 'GO2RTC_RTSP_PASSWORD') as $key) {
+            foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_LOCAL_DEVICE_URL', 'GO2RTC_LINK_URL', 'GO2RTC_LOCAL_LINK_URL', 'GO2RTC_RTSP_USER',
+                'GO2RTC_LOCAL_RTSP_USER', 'GO2RTC_RTSP_PASSWORD', 'GO2RTC_LOCAL_RTSP_PASSWORD') as $key) {
                 $this->config[$key] = trim((string)gr(strtolower($key)));
             }
-            foreach (array('GO2RTC_URL', 'GO2RTC_DEVICE_URL', 'GO2RTC_LOCAL_DEVICE_URL', 'GO2RTC_LINK_URL') as $key) {
+            foreach (array('GO2RTC_URL', 'GO2RTC_DEVICE_URL', 'GO2RTC_LOCAL_DEVICE_URL', 'GO2RTC_LINK_URL', 'GO2RTC_LOCAL_LINK_URL') as $key) {
                 if ($this->config[$key] != '' && !preg_match('#^https?://#i', $this->config[$key])) {
                     $this->config[$key] = 'http://' . $this->config[$key];
                 }
             }
             $this->config['GO2RTC_VIEW_PHP'] = gr('go2rtc_view_php', 'int') ? '1' : '0';
-            $this->config['GO2RTC_RTSP_PORT'] = gr('go2rtc_rtsp_port', 'int') ? (string)gr('go2rtc_rtsp_port', 'int') : '';
+            foreach (array('GO2RTC_RTSP_PORT', 'GO2RTC_LOCAL_RTSP_PORT') as $key) {
+                $this->config[$key] = gr(strtolower($key), 'int') ? (string)gr(strtolower($key), 'int') : '';
+            }
             $this->config['GO2RTC_WEBTORRENT'] = gr('go2rtc_webtorrent', 'int') ? '1' : '0';
-            $this->config['GO2RTC_WAIT'] = gr('go2rtc_wait', 'int') ? (string)max(2, min(25, gr('go2rtc_wait', 'int'))) : '';
+            foreach (array('GO2RTC_WAIT', 'GO2RTC_LOCAL_WAIT') as $key) {
+                $this->config[$key] = gr(strtolower($key), 'int') ? (string)max(2, min(25, gr(strtolower($key), 'int'))) : '';
+            }
             // встроенный go2rtc: режим, порты, доступ к API из сети, ffmpeg
             $this->config['GO2RTC_MODE'] = (gr('go2rtc_mode') == 'local') ? 'local' : '';
             foreach (array('GO2RTC_API_PORT', 'GO2RTC_WEBRTC_PORT') as $key) {
@@ -216,9 +221,11 @@ class go2rtc extends module
             'GO2RTC_RTSP_PASSWORD', 'GO2RTC_WAIT') as $key) {
             $out[$key] = $h(isset($this->config[$key]) ? $this->config[$key] : '');
         }
-        // адрес для устройств — отдельно у встроенного и внешнего go2rtc (до первого сохранения у встроенного — прежний общий)
-        $out['GO2RTC_LOCAL_DEVICE_URL'] = $h(array_key_exists('GO2RTC_LOCAL_DEVICE_URL', $this->config) ? $this->config['GO2RTC_LOCAL_DEVICE_URL']
-            : (isset($this->config['GO2RTC_DEVICE_URL']) ? $this->config['GO2RTC_DEVICE_URL'] : ''));
+        // адрес для устройств, адрес гостевых ссылок, RTSP и ожидание — отдельно у встроенного и внешнего go2rtc
+        // (до первого сохранения у встроенного — прежние общие)
+        foreach (array('DEVICE_URL', 'LINK_URL', 'RTSP_PORT', 'RTSP_USER', 'RTSP_PASSWORD', 'WAIT') as $name) {
+            $out['GO2RTC_LOCAL_' . $name] = $h(go2rtcModeGet($this->config, 'GO2RTC_' . $name, '', true));
+        }
         $out['GO2RTC_DEVICE_AUTO_LOCAL'] = $h(go2rtcDeviceAuto('http://127.0.0.1:' . (go2rtcLocalSettings()['api_port'])));
         $out['GO2RTC_DEVICE_AUTO_EXT'] = $h(isset($this->config['GO2RTC_URL']) && $this->config['GO2RTC_URL'] != '' ? go2rtcDeviceAuto($this->config['GO2RTC_URL']) : '');
         $out['GO2RTC_WEBTORRENT'] = !empty($this->config['GO2RTC_WEBTORRENT']) ? 1 : 0;

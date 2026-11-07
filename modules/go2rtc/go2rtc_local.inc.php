@@ -5,7 +5,7 @@
  *
  * Режим — настройка GO2RTC_MODE: '' — внешний go2rtc, как раньше (адрес API, камеры берутся из go2rtc);
  * 'local' — встроенный. Остальные настройки встроенного:
- *   GO2RTC_API_PORT (1984), GO2RTC_RTSP_PORT (8554, общая с внешним режимом), GO2RTC_WEBRTC_PORT (8555);
+ *   GO2RTC_API_PORT (1984), GO2RTC_LOCAL_RTSP_PORT (8554; у встроенного и внешнего go2rtc RTSP, адреса и ожидание свои), GO2RTC_WEBRTC_PORT (8555);
  *   GO2RTC_API_LAN — '1': API слушает сеть (прямой просмотр в браузере, ссылки HTTP для устройств), иначе
  *     только 127.0.0.1;
  *   GO2RTC_FFMPEG — путь к ffmpeg (пусто — ffmpeg из PATH);
@@ -64,18 +64,21 @@ function go2rtcLocalSettings()
     $get = function ($key, $default = '') use ($config) {
         return (isset($config[$key]) && $config[$key] !== '') ? (string)$config[$key] : $default;
     };
+    $own = function ($key, $default = '') use ($config) {   // RTSP встроенного go2rtc — свой (go2rtcModeGet)
+        return go2rtcModeGet($config, $key, $default, true);
+    };
     $port = function ($value, $default) {
         $value = (int)$value;
         return ($value >= 1024 && $value <= 65535) ? $value : $default;
     };
     return array(
         'api_port' => $port($get('GO2RTC_API_PORT'), 1984),
-        'rtsp_port' => $port($get('GO2RTC_RTSP_PORT'), 8554),
+        'rtsp_port' => $port($own('GO2RTC_RTSP_PORT'), 8554),
         'webrtc_port' => $port($get('GO2RTC_WEBRTC_PORT'), 8555),
         'api_lan' => $get('GO2RTC_API_LAN', '1') == '1',
         'ffmpeg' => $get('GO2RTC_FFMPEG'),
-        'rtsp_user' => $get('GO2RTC_RTSP_USER'),
-        'rtsp_password' => $get('GO2RTC_RTSP_PASSWORD'),
+        'rtsp_user' => $own('GO2RTC_RTSP_USER'),
+        'rtsp_password' => $own('GO2RTC_RTSP_PASSWORD'),
         'file' => $get('GO2RTC_FILE') == '1',
         'file_path' => $get('GO2RTC_FILE_PATH', go2rtcLocalDir() . '/go2rtc.yaml.php'),
         'api_auth' => $get('GO2RTC_API_AUTH') == '1',

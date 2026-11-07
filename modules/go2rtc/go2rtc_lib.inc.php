@@ -124,6 +124,19 @@ function go2rtcLogSafe($text)
     return preg_replace('/([?&#](?:token|sig|key|password|pass|pwd)=)[^&\s"\']+/i', '$1***', $text);
 }
 
+// Настройка, которая у встроенного и внешнего go2rtc хранится отдельно (адрес для устройств, адрес для гостевых ссылок, RTSP,
+// ожидание): у встроенного — GO2RTC_LOCAL_<имя>; пока её не сохраняли — прежняя общая GO2RTC_<имя>
+function go2rtcModeGet($config, $key, $default, $local)
+{
+    if ($local) {
+        $own = 'GO2RTC_LOCAL_' . substr($key, 7);
+        if (array_key_exists($own, $config)) {
+            return ($config[$own] !== '') ? (string)$config[$own] : $default;
+        }
+    }
+    return (isset($config[$key]) && $config[$key] !== '') ? (string)$config[$key] : $default;
+}
+
 // Настройки go2rtc (с умолчаниями)
 function go2rtcConfig()
 {
@@ -133,6 +146,9 @@ function go2rtcConfig()
     };
     // встроенный go2rtc (go2rtc_local.inc.php): API на этой машине, без пароля
     $local = isset($config['GO2RTC_MODE']) && $config['GO2RTC_MODE'] == 'local';
+    $mode = function ($key, $default = '') use ($config, $local) {
+        return go2rtcModeGet($config, $key, $default, $local);
+    };
     $api_port = (int)$get('GO2RTC_API_PORT', '1984');
     $api_port = ($api_port >= 1024 && $api_port <= 65535) ? $api_port : 1984;
     return array(
@@ -142,15 +158,15 @@ function go2rtcConfig()
         'local' => $local,
         'api_lan' => $get('GO2RTC_API_LAN', '1') == '1',
         'view_php' => $get('GO2RTC_VIEW_PHP') == '1',
-        // адрес для устройств хранится отдельно для встроенного и внешнего go2rtc (до первого сохранения у встроенного — прежний общий)
-        'device_url' => rtrim($local ? (array_key_exists('GO2RTC_LOCAL_DEVICE_URL', $config) ? $get('GO2RTC_LOCAL_DEVICE_URL') : $get('GO2RTC_DEVICE_URL')) : $get('GO2RTC_DEVICE_URL'), '/'),
-        'link_url' => rtrim($get('GO2RTC_LINK_URL'), '/'),
-        'rtsp_port' => (int)$get('GO2RTC_RTSP_PORT', '8554'),
-        'rtsp_user' => $get('GO2RTC_RTSP_USER'),
-        'rtsp_password' => $get('GO2RTC_RTSP_PASSWORD'),
+        // у встроенного и внешнего go2rtc — свои (go2rtcModeGet)
+        'device_url' => rtrim($mode('GO2RTC_DEVICE_URL'), '/'),
+        'link_url' => rtrim($mode('GO2RTC_LINK_URL'), '/'),
+        'rtsp_port' => (int)$mode('GO2RTC_RTSP_PORT', '8554'),
+        'rtsp_user' => $mode('GO2RTC_RTSP_USER'),
+        'rtsp_password' => $mode('GO2RTC_RTSP_PASSWORD'),
         'webtorrent' => $get('GO2RTC_WEBTORRENT') == '1',
         // удалённые и облачные камеры просыпаются дольше; не больше 25 с — запрос страницы укладывается в 30 с PHP
-        'wait' => max(2, min(25, (int)$get('GO2RTC_WAIT', '6'))),
+        'wait' => max(2, min(25, (int)$mode('GO2RTC_WAIT', '6'))),
     );
 }
 
