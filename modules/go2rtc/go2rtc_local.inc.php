@@ -375,11 +375,79 @@ function go2rtcLocalInstall(&$ok = false)
     return implode("\n", $log);
 }
 
-// ffmpeg: путь из настройки или из PATH; возвращает array(path, version) (version '' — не найден)
-function go2rtcLocalFfmpeg()
+// Папки, где бывают ffmpeg и прочие программы, а в PATH веб-сервера их может не быть: php-fpm часто работает с урезанным
+// окружением (clear_env), а go2rtc, запущенный из веб-запроса, наследует его и по имени ffmpeg не находит
+function go2rtcLocalExtraDirs()
+{
+    if (go2rtcLocalWindows()) {
+        return array();
+    }
+    $dirs = array('/usr/local/bin', '/usr/bin', '/bin', '/opt/bin', '/opt/homebrew/bin', '/snap/bin', '/usr/syno/bin',
+        '/data/data/com.termux/files/usr/bin', '/usr/local/ffmpeg/bin');
+    foreach ((array)@glob('/var/packages/ffmpeg*/target/bin') as $d) {
+        $dirs[] = $d;
+    }
+    return $dirs;
+}
+
+// Окружение для запуска go2rtc: как у PHP, но PATH дополнен типовыми папками (null — оставить как есть, Windows)
+function go2rtcLocalEnv()
+{
+    if (go2rtcLocalWindows()) {
+        return null;
+    }
+    $env = @getenv();
+    if (!is_array($env) || !$env) {
+        return null;
+    }
+    $path = isset($env['PATH']) ? (string)$env['PATH'] : '';
+    $have = $path != '' ? explode(':', $path) : array();
+    foreach (go2rtcLocalExtraDirs() as $d) {
+        if (!in_array($d, $have, true) && @is_dir($d)) {
+            $have[] = $d;
+        }
+    }
+    $env['PATH'] = implode(':', $have);
+    return $env;
+}
+
+// Программа по имени: из PATH процесса, затем из типовых папок; абсолютный путь или '' — не найдена
+function go2rtcLocalFindBin($name)
+{
+    if (go2rtcLocalWindows() || $name == '') {
+        return $name;
+    }
+    $dirs = explode(':', (string)getenv('PATH'));
+    foreach (go2rtcLocalExtraDirs() as $d) {
+        $dirs[] = $d;
+    }
+    foreach ($dirs as $d) {
+        if ($d != '' && @is_file($d . '/' . $name) && @is_executable($d . '/' . $name)) {
+            return $d . '/' . $name;
+        }
+    }
+    return '';
+}
+
+// ffmpeg для запуска: путь из настройки; пусто — найденный абсолютный путь (одинаковый для пробы из PHP и для go2rtc),
+// не нашли — просто 'ffmpeg' (пусть решает PATH процесса go2rtc)
+function go2rtcLocalFfmpegBin()
 {
     $s = go2rtcLocalSettings();
-    $bin = $s['ffmpeg'] != '' ? $s['ffmpeg'] : (go2rtcLocalWindows() ? 'ffmpeg.exe' : 'ffmpeg');
+    if ($s['ffmpeg'] != '') {
+        return $s['ffmpeg'];
+    }
+    if (go2rtcLocalWindows()) {
+        return 'ffmpeg.exe';
+    }
+    $found = go2rtcLocalFindBin('ffmpeg');
+    return $found != '' ? $found : 'ffmpeg';
+}
+
+// ffmpeg: путь из настройки или найденный; возвращает array(path, version) (version '' — не найден)
+function go2rtcLocalFfmpeg()
+{
+    $bin = go2rtcLocalFfmpegBin();
     $out = go2rtcLocalExec(go2rtcLocalArg($bin) . ' -version', $code);
     $version = ($code == 0 && preg_match('/^ffmpeg version (\S+)/m', $out, $m)) ? $m[1] : '';
     return array($bin, $version);
@@ -492,7 +560,7 @@ function go2rtcLocalYaml($value)
 function go2rtcLocalConfig()
 {
     $s = go2rtcLocalSettings();
-    $ffmpeg = $s['ffmpeg'] != '' ? $s['ffmpeg'] : (go2rtcLocalWindows() ? 'ffmpeg.exe' : 'ffmpeg');
+    $ffmpeg = go2rtcLocalFfmpegBin();
     // значения модуля задаются явно — перекрывают то же самое из файла данных (строка идёт вторым конфигом)
     $rtsp = array('listen' => ':' . $s['rtsp_port'], 'username' => $s['rtsp_user'], 'password' => $s['rtsp_user'] != '' ? $s['rtsp_password'] : '');
     $api = array('listen' => ($s['api_lan'] ? '' : '127.0.0.1') . ':' . $s['api_port'], 'origin' => '*',
@@ -629,11 +697,11 @@ function go2rtcLocalStart()
         }
     }
     $spec = array(0 => array('file', go2rtcLocalWindows() ? 'NUL' : '/dev/null', 'r'), 1 => array('file', $log, 'a'), 2 => array('file', $log, 'a'));
-    $env = null;
     if (getenv('LD_LIBRARY_PATH') !== false && strpos((string)getenv('LD_LIBRARY_PATH'), '$') !== false) {
         // KSWEB и подобные передают неразвёрнутый "$LD_LIBRARY_PATH" — загрузчик ругается на каждый запуск
         putenv('LD_LIBRARY_PATH');
     }
+    $env = go2rtcLocalEnv();   // PATH дополнен типовыми папками — go2rtc найдёт ffmpeg и при запуске из php-fpm
     $options = go2rtcLocalWindows() ? array('bypass_shell' => true) : array();
     $proc = @proc_open(go2rtcLocalWindows() ? $cmd : 'exec ' . $cmd, $spec, $pipes, $dir, $env, $options);
     if (!is_resource($proc)) {
