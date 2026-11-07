@@ -412,7 +412,7 @@
 			whep: 'WebRTC via server', php: 'Via server (PHP)', snapshots: 'Snapshots', mode: 'Mode', stream: 'Stream',
 			pause: 'Pause', play: 'Play', shot: 'Save frame', pip: 'Picture in picture', mic: 'Microphone', stats: 'Statistics',
 			type: 'Type', size: 'Frame', fps: 'Frames/s', rate: 'Bitrate', rtt: 'Ping', loss: 'Lost packets', delay: 'Delay',
-			connecting: 'connecting…', failed: 'no video in this mode', settings: 'Settings', unsupported: 'not supported'};
+			connecting: 'connecting…', failed: 'no video in this mode', settings: 'Settings', close: 'Close', unsupported: 'not supported'};
 		function tx(k) {
 			return (opts.texts && opts.texts[k]) || (window.go2rtcViewer && window.go2rtcViewer.texts && window.go2rtcViewer.texts[k]) || UI_TEXTS[k] || k;
 		}
@@ -548,10 +548,10 @@
 				css.id = 'g2v-css';
 				css.textContent = '.g2v-badge{position:absolute;left:22px;top:6px;z-index:5;background:rgba(0,0,0,.55);color:#fff;font:11px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;'
 					+ 'padding:0 7px;border-radius:9px;pointer-events:none;white-space:nowrap;max-width:calc(100% - 64px);overflow:hidden;text-overflow:ellipsis}'
-					+ '.g2v-gear{position:absolute;right:6px;top:6px;z-index:6;width:26px;height:26px;border:0;border-radius:13px;background:rgba(0,0,0,.55);color:#fff;'
+					+ '.g2v-gear{position:absolute;right:6px;top:6px;z-index:8;width:26px;height:26px;border:0;border-radius:13px;background:rgba(0,0,0,.55);color:#fff;'
 					+ 'font:15px/26px sans-serif;padding:0;cursor:pointer;text-align:center}'
-					+ '.g2v-panel{position:fixed;z-index:2147483000;width:250px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;box-sizing:border-box;'
-					+ 'background:rgba(18,20,24,.96);color:#eee;font:12px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;padding:8px 10px;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.5);text-align:left}'
+					+ '.g2v-panel{position:absolute;left:0;top:0;right:0;bottom:0;z-index:7;overflow:auto;box-sizing:border-box;-webkit-overflow-scrolling:touch;'
+					+ 'background:rgba(18,20,24,.88);color:#eee;font:12px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;padding:36px 10px 8px;text-align:left;cursor:default}'
 					+ '.g2v-row{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 8px}'
 					+ '.g2v-h{color:#9aa;font-size:11px;margin:0 0 3px}'
 					+ '.g2v-b{border:1px solid #556;background:#2a2e36;color:#eee;border-radius:5px;padding:2px 8px;font:12px/1.5 inherit;font-family:inherit;cursor:pointer;margin:0}'
@@ -574,7 +574,7 @@
 				b.addEventListener('click', function (e) { e.stopPropagation(); fn(b); });
 				return b;
 			}
-			var badge = el('div', 'g2v-badge'), gear = el('button', 'g2v-gear', '⚙');
+			var badge = el('div', 'g2v-badge'), gear = el('button', 'g2v-gear', '☰');   // не ⚙: шестерёнка под плиткой — настройки камеры
 			gear.type = 'button';
 			gear.title = tx('settings');
 			if (opts.uiOffset) gear.style.right = (6 + opts.uiOffset) + 'px';   // место под кнопки страницы справа (звук во вставках)
@@ -661,22 +661,12 @@
 			panel.appendChild(mr);
 			panel.appendChild(el('div', 'g2v-h', tx('stats')));
 			panel.appendChild(stats);
-			document.body.appendChild(panel);
+			box.appendChild(panel);   // меню — поверх видео, внутри его рамки
 
 			function flash(t) {
 				msg.textContent = t;
 				msg.style.display = '';
 				setTimeout(function () { msg.style.display = 'none'; }, 3000);
-			}
-			function place() {
-				// у шестерёнки: под ней, по правому краю; не помещается снизу — над ней; всегда в пределах экрана
-				var r = gear.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, w = Math.min(250, vw - 16);
-				panel.style.maxHeight = (vh - 16) + 'px';
-				panel.style.transform = '';
-				panel.style.left = Math.max(8, Math.min(r.right - w, vw - w - 8)) + 'px';
-				var h = panel.offsetHeight, top = r.bottom + 6;
-				if (top + h > vh - 8) top = (r.top - 6 - h >= 8) ? r.top - 6 - h : Math.max(8, vh - 8 - h);
-				panel.style.top = top + 'px';
 			}
 			function fmt(m) {
 				var l = [];
@@ -704,22 +694,14 @@
 			function show(on) {
 				open = on;
 				panel.style.display = on ? '' : 'none';
-				if (on) { place(); tick(); }
+				gear.textContent = on ? '✕' : '☰';
+				gear.title = on ? tx('close') : tx('settings');
+				if (on) tick();
 			}
 			gear.addEventListener('click', function (e) { e.stopPropagation(); show(!open); });
 			['mousedown', 'touchstart', 'dblclick'].forEach(function (n) { gear.addEventListener(n, function (e) { e.stopPropagation(); }); });
-			var outside = function (e) {
-				if (open && e.isTrusted && !panel.contains(e.target) && e.target !== gear) {   // isTrusted: свои click() (ссылка на скачивание кадра) не трогаем
-					show(false);
-					e.stopPropagation();   // нажатие мимо панели только закрывает её (плитка не переключается)
-					e.preventDefault();
-				}
-			};
 			var esc = function (e) { if (e.key == 'Escape' && open) show(false); };
-			document.addEventListener('click', outside, true);
 			document.addEventListener('keydown', esc);
-			window.addEventListener('resize', function () { if (open) place(); });
-			window.addEventListener('scroll', function () { if (open) place(); }, true);
 			timer = setInterval(tick, 1000);
 
 			return {
@@ -742,7 +724,6 @@
 				},
 				destroy: function () {
 					clearInterval(timer);
-					document.removeEventListener('click', outside, true);
 					document.removeEventListener('keydown', esc);
 					if (panel.parentNode) panel.parentNode.removeChild(panel);
 				}

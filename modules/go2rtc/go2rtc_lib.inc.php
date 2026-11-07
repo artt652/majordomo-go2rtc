@@ -73,7 +73,7 @@ function go2rtcUiScript()
 {
     $texts = array();
     foreach (array('auto', 'tcp', 'whep', 'php', 'snapshots', 'mode', 'stream', 'pause', 'play', 'shot', 'pip', 'mic', 'stats',
-        'type', 'size', 'fps', 'rate', 'rtt', 'loss', 'delay', 'connecting', 'failed', 'settings', 'unsupported') as $k) {
+        'type', 'size', 'fps', 'rate', 'rtt', 'loss', 'delay', 'connecting', 'failed', 'settings', 'close', 'unsupported') as $k) {
         $texts[$k] = go2rtcLang('GO2RTC_UI_' . strtoupper($k));
     }
     return 'go2rtcViewer.texts=' . json_encode($texts, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';';

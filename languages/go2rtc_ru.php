@@ -63,6 +63,7 @@ $dictionary = array(
 	'GO2RTC_UI_CONNECTING'         => 'подключение…',
 	'GO2RTC_UI_FAILED'             => 'в этом режиме видео нет',
 	'GO2RTC_UI_SETTINGS'           => 'Параметры просмотра',
+	'GO2RTC_UI_CLOSE'              => 'Закрыть',
 	'GO2RTC_UI_UNSUPPORTED'        => 'не поддерживается',
 	'GO2RTC_UI_SD'                 => 'Обычный',
 	'GO2RTC_UI_HD_NAME'            => 'HD',
