@@ -142,7 +142,8 @@ function go2rtcConfig()
         'local' => $local,
         'api_lan' => $get('GO2RTC_API_LAN', '1') == '1',
         'view_php' => $get('GO2RTC_VIEW_PHP') == '1',
-        'device_url' => rtrim($get('GO2RTC_DEVICE_URL'), '/'),
+        // адрес для устройств хранится отдельно для встроенного и внешнего go2rtc (до первого сохранения у встроенного — прежний общий)
+        'device_url' => rtrim($local ? (array_key_exists('GO2RTC_LOCAL_DEVICE_URL', $config) ? $get('GO2RTC_LOCAL_DEVICE_URL') : $get('GO2RTC_DEVICE_URL')) : $get('GO2RTC_DEVICE_URL'), '/'),
         'link_url' => rtrim($get('GO2RTC_LINK_URL'), '/'),
         'rtsp_port' => (int)$get('GO2RTC_RTSP_PORT', '8554'),
         'rtsp_user' => $get('GO2RTC_RTSP_USER'),
@@ -246,7 +247,13 @@ function go2rtcDeviceBase()
     if ($cfg['device_url'] != '') {
         return $cfg['device_url'];
     }
-    $parts = parse_url($cfg['url']);
+    return go2rtcDeviceAuto($cfg['url']);
+}
+
+// Адрес для устройств без настройки: адрес сервера в сети (вместо 127.0.0.1) и порт API
+function go2rtcDeviceAuto($url)
+{
+    $parts = parse_url($url);
     $host = isset($parts['host']) ? $parts['host'] : '';
     if ($host == '' || $host == '127.0.0.1' || $host == 'localhost' || $host == '::1') {
         $ip = function_exists('getLocalIp') ? getLocalIp() : '';

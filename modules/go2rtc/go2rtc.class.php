@@ -69,10 +69,10 @@ class go2rtc extends module
         };
         $out['TAB'] = '';
         if (gr('go2rtc_save')) {
-            foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_LINK_URL', 'GO2RTC_RTSP_USER', 'GO2RTC_RTSP_PASSWORD') as $key) {
+            foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_LOCAL_DEVICE_URL', 'GO2RTC_LINK_URL', 'GO2RTC_RTSP_USER', 'GO2RTC_RTSP_PASSWORD') as $key) {
                 $this->config[$key] = trim((string)gr(strtolower($key)));
             }
-            foreach (array('GO2RTC_URL', 'GO2RTC_DEVICE_URL', 'GO2RTC_LINK_URL') as $key) {
+            foreach (array('GO2RTC_URL', 'GO2RTC_DEVICE_URL', 'GO2RTC_LOCAL_DEVICE_URL', 'GO2RTC_LINK_URL') as $key) {
                 if ($this->config[$key] != '' && !preg_match('#^https?://#i', $this->config[$key])) {
                     $this->config[$key] = 'http://' . $this->config[$key];
                 }
@@ -216,6 +216,11 @@ class go2rtc extends module
             'GO2RTC_RTSP_PASSWORD', 'GO2RTC_WAIT') as $key) {
             $out[$key] = $h(isset($this->config[$key]) ? $this->config[$key] : '');
         }
+        // адрес для устройств — отдельно у встроенного и внешнего go2rtc (до первого сохранения у встроенного — прежний общий)
+        $out['GO2RTC_LOCAL_DEVICE_URL'] = $h(array_key_exists('GO2RTC_LOCAL_DEVICE_URL', $this->config) ? $this->config['GO2RTC_LOCAL_DEVICE_URL']
+            : (isset($this->config['GO2RTC_DEVICE_URL']) ? $this->config['GO2RTC_DEVICE_URL'] : ''));
+        $out['GO2RTC_DEVICE_AUTO_LOCAL'] = $h(go2rtcDeviceAuto('http://127.0.0.1:' . (go2rtcLocalSettings()['api_port'])));
+        $out['GO2RTC_DEVICE_AUTO_EXT'] = $h(isset($this->config['GO2RTC_URL']) && $this->config['GO2RTC_URL'] != '' ? go2rtcDeviceAuto($this->config['GO2RTC_URL']) : '');
         $out['GO2RTC_WEBTORRENT'] = !empty($this->config['GO2RTC_WEBTORRENT']) ? 1 : 0;
         $out['GO2RTC_VIEW_PHP'] = (isset($this->config['GO2RTC_VIEW_PHP']) && $this->config['GO2RTC_VIEW_PHP'] == '1') ? 1 : 0;
         // встроенный go2rtc
