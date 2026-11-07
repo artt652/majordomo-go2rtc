@@ -346,7 +346,9 @@ class go2rtc extends module
         $id = (int)$camera['ID'];
         $is_local = !empty($camera['LOCAL']);
         // камера встроенного go2rtc: удалить (поток из go2rtc, запись, привязку свойства)
-        if ($is_local && $id && gr('camera_delete')) {
+        // во встроенном режиме удалять можно любую камеру (в т.ч. появившуюся из go2rtc, а не из формы модуля)
+        $can_delete = $id && ($is_local || go2rtcLocal());
+        if ($can_delete && gr('camera_delete')) {
             if ($camera['LINKED_OBJECT'] != '' && $camera['SHOW_PROPERTY'] != '') {
                 removeLinkedProperty($camera['LINKED_OBJECT'], $camera['SHOW_PROPERTY'], $this->name);
             }
@@ -469,6 +471,7 @@ class go2rtc extends module
             }
         }
         $out['CAMERA_LOCAL'] = $is_local ? 1 : 0;
+        $out['CAMERA_CAN_DELETE'] = $can_delete ? 1 : 0;
         $out['CAMERA_NEW'] = $id ? 0 : 1;
         foreach (array('SOURCE', 'SOURCE_USER', 'SOURCE_HQ') as $field) {
             $out['CAMERA_' . $field] = $h(isset($camera[$field]) ? $camera[$field] : '');

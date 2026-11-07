@@ -177,7 +177,7 @@
 	<div class="col-sm-8">
 		<button type="submit" class="btn btn-primary"><#LANG_GO2RTC_SAVE#></button>
 		[#if CAMERA_NEW!="1"#][#if CAN_CREATE_DEVICE="1"#]<button type="submit" name="device_create" value="1" class="btn btn-default" onclick="return confirm('<#LANG_GO2RTC_DEVICE_CREATE_CONFIRM#>');"><#LANG_GO2RTC_DEVICE_CREATE#></button>[#endif CAN_CREATE_DEVICE#][#endif CAMERA_NEW#]
-		[#if CAMERA_LOCAL="1"#][#if CAMERA_NEW!="1"#]<button type="submit" name="camera_delete" value="1" class="btn btn-danger pull-right" onclick="return confirm('<#LANG_GO2RTC_LOCAL_DELETE_CONFIRM#>');"><#LANG_GO2RTC_LOCAL_DELETE#></button>[#endif CAMERA_NEW#][#endif CAMERA_LOCAL#]
+		[#if CAMERA_CAN_DELETE="1"#]<button type="submit" name="camera_delete" value="1" class="btn btn-danger pull-right" onclick="return confirm('<#LANG_GO2RTC_LOCAL_DELETE_CONFIRM#>');"><#LANG_GO2RTC_LOCAL_DELETE#></button>[#endif CAMERA_CAN_DELETE#]
 	</div>
 </div>
 <input type="hidden" name="camera_id" value="[#if CAMERA_NEW="1"#]new[#else CAMERA_NEW#][#CAMERA_ID#][#endif CAMERA_NEW#]">
