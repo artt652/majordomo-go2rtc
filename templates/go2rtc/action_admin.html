@@ -532,7 +532,13 @@
 			var box = tile.querySelector('.g2-box');
 			var poster = (playing[i] && tiles[i]) ? null : go2rtcViewer.capture(box);
 			grid(false);
-			document.getElementById('g2_live_name').textContent = '📹 ' + tile.getAttribute('data-title');
+			var liveName = document.getElementById('g2_live_name'), liveIco = document.createElement('img');
+			liveIco.src = '<#ROOTHTML#>img/modules/go2rtc.png';
+			liveIco.alt = '';
+			liveIco.style.cssText = 'height:18px;width:18px;vertical-align:-3px';
+			liveName.textContent = '';
+			liveName.appendChild(liveIco);
+			liveName.appendChild(document.createTextNode(' ' + tile.getAttribute('data-title')));
 			var state = document.getElementById('g2_live_state');
 			live.classList.add('on');
 			liveSound.style.display = tile.getAttribute('data-audio') == '1' ? '' : 'none';

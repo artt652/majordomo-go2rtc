@@ -677,7 +677,7 @@ class go2rtc extends module
             . 'main.go2rtc-off img{opacity:.35}.gone{display:flex;align-items:center;justify-content:center;height:100vh;color:#ccc;font-size:16px}';
         if ($cam == '') {
             header('HTTP/1.1 404 Not Found');
-            echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+            echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" type="image/png" href="' . ROOTHTML . 'img/modules/go2rtc.png">'
                 . '<title>' . $h(go2rtcLang('GO2RTC_LINK_GONE')) . '</title><style>' . $style . '</style></head>'
                 . '<body><div class="gone">' . $h(go2rtcLang('GO2RTC_LINK_GONE')) . '</div></body></html>';
             exit;
@@ -690,10 +690,10 @@ class go2rtc extends module
         $texts = array('live' => go2rtcLang('GO2RTC_CAM_LIVE'), 'snapshot' => go2rtcLang('GO2RTC_CAM_SNAPSHOT'),
             'offline' => go2rtcLang('GO2RTC_CAM_OFFLINE'), 'gone' => go2rtcLang('GO2RTC_LINK_GONE'));
         $flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE;
-        echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" type="image/png" href="' . ROOTHTML . 'img/modules/go2rtc.png">'
             . '<meta name="referrer" content="no-referrer"><title>' . $h($cam) . '</title><style>' . $style . '</style>'
             . '<script src="' . $h(ROOTHTML . 'templates/go2rtc/js/viewer.js') . '"></script><script>' . go2rtcUiScript() . '</script></head><body>'
-            . '<header><b>📹 ' . $h($cam) . '</b><span id="state"></span><span>' . $h(str_replace('%s', $until, go2rtcLang('GO2RTC_LINK_READY'))) . '</span></header>'
+            . '<header><b><img src="' . $h(ROOTHTML . 'img/modules/go2rtc.png') . '" alt="" style="height:18px;width:18px;vertical-align:-3px"> ' . $h($cam) . '</b><span id="state"></span><span>' . $h(str_replace('%s', $until, go2rtcLang('GO2RTC_LINK_READY'))) . '</span></header>'
             . '<main id="view" data-off="' . $h($texts['offline']) . '"></main>'
             . '<script>(function(){var base=' . json_encode($base, $flags) . ',id=' . json_encode($id, $flags) . ',t=' . json_encode($texts, $flags)
             . ',expires=' . (int)$link['expires'] . ',state=document.getElementById("state");'
@@ -725,7 +725,7 @@ class go2rtc extends module
             'direct' => go2rtcDirectBase() != '' ? array('base' => go2rtcDirectBase(), 'src' => $hq) : null,
             'player' => ROOTHTML . 'templates/go2rtc/js/video-rtc.js', 'wait' => (int)$cfg['wait'], 'live' => $mode == 'live',
             'width' => 1280, 'interval' => 3000, 'audio' => go2rtcCameraAudio($cam), 'controls' => $mode == 'live');
-        echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" type="image/png" href="' . ROOTHTML . 'img/modules/go2rtc.png">'
             . '<meta name="referrer" content="no-referrer"><title>' . htmlspecialchars(go2rtcCameraTitle($cam), ENT_QUOTES, 'UTF-8') . '</title>'
             . '<style>html,body{margin:0;height:100%;background:#000}#v{width:100%;height:100%}.go2rtc-off img{opacity:.35}</style>'
             . '<script src="' . htmlspecialchars(ROOTHTML . 'templates/go2rtc/js/viewer.js', ENT_QUOTES, 'UTF-8') . '"></script></head>'

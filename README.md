@@ -1,4 +1,4 @@
-# Камеры (go2rtc) для MajorDoMo
+# <img src="img/modules/go2rtc.png" alt="" width="36" align="absmiddle"> Камеры (go2rtc) для MajorDoMo
 
 Камеры через [go2rtc](https://github.com/AlexxIT/go2rtc): просмотр в панели управления, права, показ на терминалах, временный доступ и гостевые ссылки, WebTorrent. Своих камер у MajorDoMo нет — потоки заводятся в go2rtc, модуль берёт из него только имена; адреса и пароли камер остаются в go2rtc.
 
@@ -97,7 +97,7 @@ if (defined('GO2RTC_API') && go2rtcEnabled()) {
 | `templates/go2rtc/` | Панель (`action_admin.html`, `action_camera.html`), просмотрщик (`js/viewer.js`) |
 | `templates/go2rtc/js/video-rtc.js` | Плеер go2rtc без изменений (MIT, © AlexxIT), из `www/video-rtc.js` |
 | `languages/go2rtc_*.php` | Переводы (английский, русский, украинский) |
-| `img/modules/go2rtc.png` | Иконка модуля в панели управления |
+| `img/modules/go2rtc.png` | Иконка модуля — значок проекта go2rtc (© Alexey Khit, лицензия MIT: `img/modules/go2rtc.png.LICENSE.txt`) |
 
 Журнал — `cms/debmes/<дата>/go2rtc.log`.
 
