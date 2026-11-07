@@ -221,6 +221,7 @@
 	.g2-camera-preview.go2rtc-off::after { content: attr(data-off); position: absolute; color: #ddd; }
 </style>
 <script src="<#ROOTHTML#>templates/go2rtc/js/viewer.js"></script>
+<script>[#UI_SCRIPT#]</script>
 <script type="text/javascript">
 	function g2CopyCode(id) {
 		var input = document.getElementById(id);
@@ -249,7 +250,16 @@
 			live = isLive;
 			icon(!withSound);
 			// HD — поток высокого качества вместо основного
-			view = go2rtcViewer(box, {poster: poster, frame: box.getAttribute(hd ? 'data-frame-hq' : 'data-frame'), width: hd ? 1280 : 640, interval: 3000, wait: wait,
+			var streams = hdBtn ? [
+				{title: '<#LANG_GO2RTC_UI_SD#>', frame: box.getAttribute('data-frame'), whep: box.getAttribute('data-whep'),
+					direct: direct ? {base: direct, src: box.getAttribute('data-name')} : null},
+				{title: '<#LANG_GO2RTC_UI_HD_NAME#>', frame: box.getAttribute('data-frame-hq'), whep: box.getAttribute('data-whep-hq'),
+					direct: direct ? {base: direct, src: box.getAttribute('data-hq')} : null}
+			] : null;
+			view = go2rtcViewer(box, {ui: isLive, streams: streams, stream: hd ? 1 : 0, onstream: function (n) {
+				hd = n == 1;
+				if (hdBtn) hdBtn.classList.toggle('on', hd);
+			}, poster: poster, frame: box.getAttribute(hd ? 'data-frame-hq' : 'data-frame'), width: hd ? 1280 : 640, interval: 3000, wait: wait,
 				live: isLive, whep: box.getAttribute(hd ? 'data-whep-hq' : 'data-whep'), audio: !!snd, muted: !withSound, onmute: icon,
 				direct: direct ? {base: direct, src: box.getAttribute(hd ? 'data-hq' : 'data-name')} : null, player: player});
 		}
