@@ -223,9 +223,11 @@ function go2rtcStreams()
     if (is_array($cache) && isset($cache['time'], $cache['url'], $cache['names']) && $cache['url'] === $cfg['url']
         && $cache['time'] > time() - 60 && is_array($cache['names'])) {
         $names = $cache['names'];
+        $GLOBALS['go2rtc_streams_live'] = !isset($cache['live']) || $cache['live'];
         return $names;
     }
     $names = array();
+    $GLOBALS['go2rtc_streams_live'] = true;
     if ($cfg['local'] && function_exists('go2rtcLocalApiLimited') && go2rtcLocalApiLimited()) {
         // /api/streams закрыт (allow_paths): потоки — те, что заданы конфигом, камеры модуля и файл данных
         $names = array_values(array_unique(array_merge(array_keys(go2rtcLocalStreams()), go2rtcLocalFileStreams())));
@@ -247,7 +249,21 @@ function go2rtcStreams()
     } elseif ($code != 200) {
         DebMes('go2rtc: streams list failed (HTTP ' . $code . ')', 'go2rtc');
     }
-    @file_put_contents($cache_file, json_encode(array('time' => time(), 'url' => $cfg['url'], 'names' => $names)));
+    // go2rtc не ответил — пометки «нет в go2rtc» (MISSING) не ставим
+    $GLOBALS['go2rtc_streams_live'] = ($code == 200);
+    // встроенный go2rtc: показываем и неактивные потоки — камеры модуля и потоки файла go2rtc.yaml,
+    // даже если go2rtc остановлен или поток ещё не загружен в него
+    if ($cfg['local'] && function_exists('go2rtcLocalStreams')) {
+        $extra = array_merge(array_keys(go2rtcLocalStreams()), go2rtcLocalFileStreams());
+        foreach ($extra as $name) {
+            if (is_string($name) && $name !== '' && !in_array($name, $names, true)) {
+                $names[] = $name;
+            }
+        }
+        natcasesort($names);
+        $names = array_values($names);
+    }
+    @file_put_contents($cache_file, json_encode(array('time' => time(), 'url' => $cfg['url'], 'names' => $names, 'live' => !empty($GLOBALS['go2rtc_streams_live']))));
     return $names;
 }
 
@@ -1090,7 +1106,7 @@ function go2rtcCamerasSync()
         }
     }
     foreach ($rows as $name => $row) {
-        if (!in_array($name, $streams, true) && !(int)$row['MISSING']) {
+        if (!empty($GLOBALS['go2rtc_streams_live']) && !in_array($name, $streams, true) && !(int)$row['MISSING']) {
             SQLExec("UPDATE go2rtc_cameras SET MISSING=1 WHERE ID=" . (int)$row['ID']);
         }
     }
