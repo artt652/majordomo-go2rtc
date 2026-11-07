@@ -16,8 +16,8 @@
  *   GO2RTC_RTSP_PORT, GO2RTC_RTSP_USER, GO2RTC_RTSP_PASSWORD — RTSP-сервер go2rtc (свой пароль, только просмотр);
  *   GO2RTC_WEBTORRENT — внешний просмотр через WebTorrent (срок ссылки — при создании);
  *   GO2RTC_WAIT — сколько ждать первый кадр камеры, с (снимок, начало просмотра; пусто — 6);
- *   GO2RTC_DEFAULT_ACCESS — камеры без правила «Контроля доступа»: admin | all; SECRET — ключ подписи ссылок.
- * Права на камеры — «Контроль доступа» ядра (security_rules, тип go2rtc); камеры — таблица go2rtc_cameras.
+ *   GO2RTC_DEFAULT_ACCESS — камеры без правила модуля «Правила безопасности»: admin | all; SECRET — ключ подписи ссылок.
+ * Права на камеры — «Правила безопасности» ядра (security_rules, тип go2rtc); камеры — таблица go2rtc_cameras.
  * Временный доступ, гостевые ссылки и ссылки WebTorrent — таблица go2rtc_links.
  *
  * Кадр и WebRTC для браузеров и устройств — подписанные ссылки api.php/module/go2rtc/frame|whep?src=…&exp=…&sig=…
@@ -874,7 +874,7 @@ function go2rtcWhepProxy($name)
     exit;
 }
 
-// --- Права на камеры: «Контроль доступа» ядра (security_rules), тип объекта go2rtc, ID — камера из go2rtc_cameras ---
+// --- Права на камеры: «Правила безопасности» ядра (security_rules), тип объекта go2rtc, ID — камера из go2rtc_cameras ---
 // Правило камеры — как у любого объекта MajorDoMo: пользователи, терминалы (с «кроме»), время, условия по свойствам.
 // Камера без правила — по настройке модуля GO2RTC_DEFAULT_ACCESS: 'admin' — только администратору (по умолчанию),
 // 'all' — всем. Администратор (вход в панель управления или пользователь с правами администратора) видит все камеры.
@@ -887,7 +887,7 @@ function go2rtcDefaultAccess()
     return (isset($config['GO2RTC_DEFAULT_ACCESS']) && $config['GO2RTC_DEFAULT_ACCESS'] == 'all') ? 'all' : 'admin';
 }
 
-// Есть ли у камеры правило «Контроля доступа»
+// Есть ли у камеры правило модуля «Правила безопасности»
 function go2rtcRuleDefined($camera_id)
 {
     if (!(int)$camera_id || !function_exists('checkAccessDefined') || !SQLSelectOne("SHOW TABLES LIKE 'security_rules'")) {
@@ -1068,7 +1068,7 @@ function go2rtcRulesMigrate()
 
 // --- Камеры модуля (таблица go2rtc_cameras): название, порядок, привязка к объектам ---
 // Строки появляются из списка go2rtc (go2rtcCamerasSync); поток, пропавший из go2rtc, помечается MISSING, но строка
-// (название, привязки) остаётся — вернётся поток, вернётся и камера. Числовой ID нужен «Контролю доступа» ядра.
+// (название, привязки) остаётся — вернётся поток, вернётся и камера. Числовой ID нужен модулю «Правила безопасности» ядра.
 
 // Пополнить таблицу из списка go2rtc. Возвращает число новых камер
 function go2rtcCamerasSync()
