@@ -124,6 +124,19 @@ function go2rtcLogSafe($text)
     return preg_replace('/([?&#](?:token|sig|key|password|pass|pwd)=)[^&\s"\']+/i', '$1***', $text);
 }
 
+// Настройка, которая у встроенного и внешнего go2rtc хранится отдельно (адрес для устройств, адрес для гостевых ссылок, RTSP,
+// ожидание): у встроенного — GO2RTC_LOCAL_<имя>; пока её не сохраняли — прежняя общая GO2RTC_<имя>
+function go2rtcModeGet($config, $key, $default, $local)
+{
+    if ($local) {
+        $own = 'GO2RTC_LOCAL_' . substr($key, 7);
+        if (array_key_exists($own, $config)) {
+            return ($config[$own] !== '') ? (string)$config[$own] : $default;
+        }
+    }
+    return (isset($config[$key]) && $config[$key] !== '') ? (string)$config[$key] : $default;
+}
+
 // Настройки go2rtc (с умолчаниями)
 function go2rtcConfig()
 {
@@ -133,6 +146,9 @@ function go2rtcConfig()
     };
     // встроенный go2rtc (go2rtc_local.inc.php): API на этой машине, без пароля
     $local = isset($config['GO2RTC_MODE']) && $config['GO2RTC_MODE'] == 'local';
+    $mode = function ($key, $default = '') use ($config, $local) {
+        return go2rtcModeGet($config, $key, $default, $local);
+    };
     $api_port = (int)$get('GO2RTC_API_PORT', '1984');
     $api_port = ($api_port >= 1024 && $api_port <= 65535) ? $api_port : 1984;
     return array(
@@ -142,14 +158,15 @@ function go2rtcConfig()
         'local' => $local,
         'api_lan' => $get('GO2RTC_API_LAN', '1') == '1',
         'view_php' => $get('GO2RTC_VIEW_PHP') == '1',
-        'device_url' => rtrim($get('GO2RTC_DEVICE_URL'), '/'),
-        'link_url' => rtrim($get('GO2RTC_LINK_URL'), '/'),
-        'rtsp_port' => (int)$get('GO2RTC_RTSP_PORT', '8554'),
-        'rtsp_user' => $get('GO2RTC_RTSP_USER'),
-        'rtsp_password' => $get('GO2RTC_RTSP_PASSWORD'),
+        // у встроенного и внешнего go2rtc — свои (go2rtcModeGet)
+        'device_url' => rtrim($mode('GO2RTC_DEVICE_URL'), '/'),
+        'link_url' => rtrim($mode('GO2RTC_LINK_URL'), '/'),
+        'rtsp_port' => (int)$mode('GO2RTC_RTSP_PORT', '8554'),
+        'rtsp_user' => $mode('GO2RTC_RTSP_USER'),
+        'rtsp_password' => $mode('GO2RTC_RTSP_PASSWORD'),
         'webtorrent' => $get('GO2RTC_WEBTORRENT') == '1',
         // удалённые и облачные камеры просыпаются дольше; не больше 25 с — запрос страницы укладывается в 30 с PHP
-        'wait' => max(2, min(25, (int)$get('GO2RTC_WAIT', '6'))),
+        'wait' => max(2, min(25, (int)$mode('GO2RTC_WAIT', '6'))),
     );
 }
 
@@ -206,12 +223,14 @@ function go2rtcStreams()
     if (is_array($cache) && isset($cache['time'], $cache['url'], $cache['names']) && $cache['url'] === $cfg['url']
         && $cache['time'] > time() - 60 && is_array($cache['names'])) {
         $names = $cache['names'];
+        $GLOBALS['go2rtc_streams_live'] = !isset($cache['live']) || $cache['live'];
         return $names;
     }
     $names = array();
+    $GLOBALS['go2rtc_streams_live'] = true;
     if ($cfg['local'] && function_exists('go2rtcLocalApiLimited') && go2rtcLocalApiLimited()) {
         // /api/streams закрыт (allow_paths): потоки — те, что заданы конфигом, камеры модуля и файл данных
-        $names = array_values(array_unique(array_merge(array_keys(go2rtcLocalStreams()), go2rtcLocalFileStreams())));
+        $names = array_map('strval', array_values(array_unique(array_merge(array_keys(go2rtcLocalStreams()), go2rtcLocalFileStreams()))));
         natcasesort($names);
         $names = array_values($names);
         return $names;
@@ -219,6 +238,7 @@ function go2rtcStreams()
     $data = json_decode(go2rtcRequest('GET', 'api/streams', array(), null, '', $code), true);
     if ($code == 200 && is_array($data)) {
         foreach (array_keys($data) as $name) {
+            $name = (string)$name; // PHP делает ключ «123» числом
             // любое имя go2rtc (пробелы, скобки, кириллица — в ссылках оно кодируется), кроме управляющих
             // символов; до 100 символов (столько хранят ссылки и переписка «Сообщений»)
             if (is_string($name) && preg_match('/^[^\x00-\x1f\x7f]{1,100}$/u', $name)) {
@@ -230,12 +250,28 @@ function go2rtcStreams()
     } elseif ($code != 200) {
         DebMes('go2rtc: streams list failed (HTTP ' . $code . ')', 'go2rtc');
     }
-    @file_put_contents($cache_file, json_encode(array('time' => time(), 'url' => $cfg['url'], 'names' => $names)));
+    // go2rtc не ответил — пометки «нет в go2rtc» (MISSING) не ставим
+    $GLOBALS['go2rtc_streams_live'] = ($code == 200);
+    // встроенный go2rtc: показываем и неактивные потоки — камеры модуля и потоки файла go2rtc.yaml,
+    // даже если go2rtc остановлен или поток ещё не загружен в него
+    if ($cfg['local'] && function_exists('go2rtcLocalStreams')) {
+        $extra = array_merge(array_keys(go2rtcLocalStreams()), go2rtcLocalFileStreams());
+        foreach ($extra as $name) {
+            $name = (string)$name;
+            if (is_string($name) && $name !== '' && !in_array($name, $names, true)) {
+                $names[] = $name;
+            }
+        }
+        natcasesort($names);
+        $names = array_values($names);
+    }
+    @file_put_contents($cache_file, json_encode(array('time' => time(), 'url' => $cfg['url'], 'names' => $names, 'live' => !empty($GLOBALS['go2rtc_streams_live']))));
     return $names;
 }
 
 function go2rtcHas($name)
 {
+    $name = is_int($name) ? (string)$name : $name;
     return is_string($name) && $name != '' && in_array($name, go2rtcStreams(), true);
 }
 
@@ -246,7 +282,13 @@ function go2rtcDeviceBase()
     if ($cfg['device_url'] != '') {
         return $cfg['device_url'];
     }
-    $parts = parse_url($cfg['url']);
+    return go2rtcDeviceAuto($cfg['url']);
+}
+
+// Адрес для устройств без настройки: адрес сервера в сети (вместо 127.0.0.1) и порт API
+function go2rtcDeviceAuto($url)
+{
+    $parts = parse_url($url);
     $host = isset($parts['host']) ? $parts['host'] : '';
     if ($host == '' || $host == '127.0.0.1' || $host == 'localhost' || $host == '::1') {
         $ip = function_exists('getLocalIp') ? getLocalIp() : '';
@@ -1067,7 +1109,7 @@ function go2rtcCamerasSync()
         }
     }
     foreach ($rows as $name => $row) {
-        if (!in_array($name, $streams, true) && !(int)$row['MISSING']) {
+        if (!empty($GLOBALS['go2rtc_streams_live']) && !in_array((string)$name, $streams, true) && !(int)$row['MISSING']) {
             SQLExec("UPDATE go2rtc_cameras SET MISSING=1 WHERE ID=" . (int)$row['ID']);
         }
     }

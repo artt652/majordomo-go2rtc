@@ -69,18 +69,23 @@ class go2rtc extends module
         };
         $out['TAB'] = '';
         if (gr('go2rtc_save')) {
-            foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_LINK_URL', 'GO2RTC_RTSP_USER', 'GO2RTC_RTSP_PASSWORD') as $key) {
+            foreach (array('GO2RTC_URL', 'GO2RTC_USER', 'GO2RTC_PASSWORD', 'GO2RTC_DEVICE_URL', 'GO2RTC_LOCAL_DEVICE_URL', 'GO2RTC_LINK_URL', 'GO2RTC_LOCAL_LINK_URL', 'GO2RTC_RTSP_USER',
+                'GO2RTC_LOCAL_RTSP_USER', 'GO2RTC_RTSP_PASSWORD', 'GO2RTC_LOCAL_RTSP_PASSWORD') as $key) {
                 $this->config[$key] = trim((string)gr(strtolower($key)));
             }
-            foreach (array('GO2RTC_URL', 'GO2RTC_DEVICE_URL', 'GO2RTC_LINK_URL') as $key) {
+            foreach (array('GO2RTC_URL', 'GO2RTC_DEVICE_URL', 'GO2RTC_LOCAL_DEVICE_URL', 'GO2RTC_LINK_URL', 'GO2RTC_LOCAL_LINK_URL') as $key) {
                 if ($this->config[$key] != '' && !preg_match('#^https?://#i', $this->config[$key])) {
                     $this->config[$key] = 'http://' . $this->config[$key];
                 }
             }
             $this->config['GO2RTC_VIEW_PHP'] = gr('go2rtc_view_php', 'int') ? '1' : '0';
-            $this->config['GO2RTC_RTSP_PORT'] = gr('go2rtc_rtsp_port', 'int') ? (string)gr('go2rtc_rtsp_port', 'int') : '';
+            foreach (array('GO2RTC_RTSP_PORT', 'GO2RTC_LOCAL_RTSP_PORT') as $key) {
+                $this->config[$key] = gr(strtolower($key), 'int') ? (string)gr(strtolower($key), 'int') : '';
+            }
             $this->config['GO2RTC_WEBTORRENT'] = gr('go2rtc_webtorrent', 'int') ? '1' : '0';
-            $this->config['GO2RTC_WAIT'] = gr('go2rtc_wait', 'int') ? (string)max(2, min(25, gr('go2rtc_wait', 'int'))) : '';
+            foreach (array('GO2RTC_WAIT', 'GO2RTC_LOCAL_WAIT') as $key) {
+                $this->config[$key] = gr(strtolower($key), 'int') ? (string)max(2, min(25, gr(strtolower($key), 'int'))) : '';
+            }
             // встроенный go2rtc: режим, порты, доступ к API из сети, ffmpeg
             $this->config['GO2RTC_MODE'] = (gr('go2rtc_mode') == 'local') ? 'local' : '';
             foreach (array('GO2RTC_API_PORT', 'GO2RTC_WEBRTC_PORT') as $key) {
@@ -216,6 +221,13 @@ class go2rtc extends module
             'GO2RTC_RTSP_PASSWORD', 'GO2RTC_WAIT') as $key) {
             $out[$key] = $h(isset($this->config[$key]) ? $this->config[$key] : '');
         }
+        // адрес для устройств, адрес гостевых ссылок, RTSP и ожидание — отдельно у встроенного и внешнего go2rtc
+        // (до первого сохранения у встроенного — прежние общие)
+        foreach (array('DEVICE_URL', 'LINK_URL', 'RTSP_PORT', 'RTSP_USER', 'RTSP_PASSWORD', 'WAIT') as $name) {
+            $out['GO2RTC_LOCAL_' . $name] = $h(go2rtcModeGet($this->config, 'GO2RTC_' . $name, '', true));
+        }
+        $out['GO2RTC_DEVICE_AUTO_LOCAL'] = $h(go2rtcDeviceAuto('http://127.0.0.1:' . (go2rtcLocalSettings()['api_port'])));
+        $out['GO2RTC_DEVICE_AUTO_EXT'] = $h(isset($this->config['GO2RTC_URL']) && $this->config['GO2RTC_URL'] != '' ? go2rtcDeviceAuto($this->config['GO2RTC_URL']) : '');
         $out['GO2RTC_WEBTORRENT'] = !empty($this->config['GO2RTC_WEBTORRENT']) ? 1 : 0;
         $out['GO2RTC_VIEW_PHP'] = (isset($this->config['GO2RTC_VIEW_PHP']) && $this->config['GO2RTC_VIEW_PHP'] == '1') ? 1 : 0;
         // встроенный go2rtc
@@ -334,7 +346,9 @@ class go2rtc extends module
         $id = (int)$camera['ID'];
         $is_local = !empty($camera['LOCAL']);
         // камера встроенного go2rtc: удалить (поток из go2rtc, запись, привязку свойства)
-        if ($is_local && $id && gr('camera_delete')) {
+        // во встроенном режиме удалять можно любую камеру (в т.ч. появившуюся из go2rtc, а не из формы модуля)
+        $can_delete = $id && ($is_local || go2rtcLocal());
+        if ($can_delete && gr('camera_delete')) {
             if ($camera['LINKED_OBJECT'] != '' && $camera['SHOW_PROPERTY'] != '') {
                 removeLinkedProperty($camera['LINKED_OBJECT'], $camera['SHOW_PROPERTY'], $this->name);
             }
@@ -457,6 +471,7 @@ class go2rtc extends module
             }
         }
         $out['CAMERA_LOCAL'] = $is_local ? 1 : 0;
+        $out['CAMERA_CAN_DELETE'] = $can_delete ? 1 : 0;
         $out['CAMERA_NEW'] = $id ? 0 : 1;
         foreach (array('SOURCE', 'SOURCE_USER', 'SOURCE_HQ') as $field) {
             $out['CAMERA_' . $field] = $h(isset($camera[$field]) ? $camera[$field] : '');
@@ -677,7 +692,7 @@ class go2rtc extends module
             . 'main.go2rtc-off img{opacity:.35}.gone{display:flex;align-items:center;justify-content:center;height:100vh;color:#ccc;font-size:16px}';
         if ($cam == '') {
             header('HTTP/1.1 404 Not Found');
-            echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+            echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" type="image/png" href="' . ROOTHTML . 'img/modules/go2rtc.png">'
                 . '<title>' . $h(go2rtcLang('GO2RTC_LINK_GONE')) . '</title><style>' . $style . '</style></head>'
                 . '<body><div class="gone">' . $h(go2rtcLang('GO2RTC_LINK_GONE')) . '</div></body></html>';
             exit;
@@ -690,10 +705,10 @@ class go2rtc extends module
         $texts = array('live' => go2rtcLang('GO2RTC_CAM_LIVE'), 'snapshot' => go2rtcLang('GO2RTC_CAM_SNAPSHOT'),
             'offline' => go2rtcLang('GO2RTC_CAM_OFFLINE'), 'gone' => go2rtcLang('GO2RTC_LINK_GONE'));
         $flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE;
-        echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" type="image/png" href="' . ROOTHTML . 'img/modules/go2rtc.png">'
             . '<meta name="referrer" content="no-referrer"><title>' . $h($cam) . '</title><style>' . $style . '</style>'
             . '<script src="' . $h(ROOTHTML . 'templates/go2rtc/js/viewer.js') . '"></script><script>' . go2rtcUiScript() . '</script></head><body>'
-            . '<header><b>📹 ' . $h($cam) . '</b><span id="state"></span><span>' . $h(str_replace('%s', $until, go2rtcLang('GO2RTC_LINK_READY'))) . '</span></header>'
+            . '<header><b><img src="' . $h(ROOTHTML . 'img/modules/go2rtc.png') . '" alt="" style="height:18px;width:18px;vertical-align:-3px"> ' . $h($cam) . '</b><span id="state"></span><span>' . $h(str_replace('%s', $until, go2rtcLang('GO2RTC_LINK_READY'))) . '</span></header>'
             . '<main id="view" data-off="' . $h($texts['offline']) . '"></main>'
             . '<script>(function(){var base=' . json_encode($base, $flags) . ',id=' . json_encode($id, $flags) . ',t=' . json_encode($texts, $flags)
             . ',expires=' . (int)$link['expires'] . ',state=document.getElementById("state");'
@@ -725,7 +740,7 @@ class go2rtc extends module
             'direct' => go2rtcDirectBase() != '' ? array('base' => go2rtcDirectBase(), 'src' => $hq) : null,
             'player' => ROOTHTML . 'templates/go2rtc/js/video-rtc.js', 'wait' => (int)$cfg['wait'], 'live' => $mode == 'live',
             'width' => 1280, 'interval' => 3000, 'audio' => go2rtcCameraAudio($cam), 'controls' => $mode == 'live');
-        echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" type="image/png" href="' . ROOTHTML . 'img/modules/go2rtc.png">'
             . '<meta name="referrer" content="no-referrer"><title>' . htmlspecialchars(go2rtcCameraTitle($cam), ENT_QUOTES, 'UTF-8') . '</title>'
             . '<style>html,body{margin:0;height:100%;background:#000}#v{width:100%;height:100%}.go2rtc-off img{opacity:.35}</style>'
             . '<script src="' . htmlspecialchars(ROOTHTML . 'templates/go2rtc/js/viewer.js', ENT_QUOTES, 'UTF-8') . '"></script></head>'

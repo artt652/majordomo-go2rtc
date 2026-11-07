@@ -10,6 +10,7 @@
 	.g2-form .g2-pair { margin-left: -15px; margin-right: -15px; }
 	/* длинные пути (файл данных, ffmpeg, ссылки) — переносить по ширине экрана */
 	#tab_settings code, #tab_settings a { overflow-wrap: anywhere; word-break: break-word; }
+	#tab_settings code { white-space: normal; word-break: break-all; }   /* у Bootstrap code не переносится */
 	@media (max-width: 767px) {
 		.g2-pair > div + div { margin-top: 6px; }
 	}
@@ -206,6 +207,38 @@
 		<p class="help-block"><#LANG_GO2RTC_LOCAL_FFMPEG_HELP#></p>
 	</div>
 </div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_DEVICE_URL#>:</label>
+	<div class="col-sm-8 col-md-6">
+		<input type="text" name="go2rtc_local_device_url" class="form-control" value="[#GO2RTC_LOCAL_DEVICE_URL#]" placeholder="[#GO2RTC_DEVICE_AUTO_LOCAL#]">
+		<p class="help-block"><#LANG_GO2RTC_DEVICE_URL_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_LINK_URL#>:</label>
+	<div class="col-sm-8 col-md-6">
+		<input type="text" name="go2rtc_local_link_url" class="form-control" value="[#GO2RTC_LOCAL_LINK_URL#]" placeholder="https://home.example.com">
+		<p class="help-block"><#LANG_GO2RTC_LINK_URL_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label">RTSP:</label>
+	<div class="col-sm-8 col-md-6">
+		<div class="row g2-pair">
+			<div class="col-sm-3"><input type="number" min="1" max="65535" name="go2rtc_local_rtsp_port" class="form-control" value="[#GO2RTC_LOCAL_RTSP_PORT#]" placeholder="8554" title="<#LANG_GO2RTC_PORT#>"></div>
+			<div class="col-sm-4"><input type="text" name="go2rtc_local_rtsp_user" class="form-control" value="[#GO2RTC_LOCAL_RTSP_USER#]" autocomplete="off" placeholder="<#LANG_GO2RTC_LOGIN#>"></div>
+			<div class="col-sm-5"><input type="password" name="go2rtc_local_rtsp_password" class="form-control" value="[#GO2RTC_LOCAL_RTSP_PASSWORD#]" autocomplete="new-password" placeholder="<#LANG_GO2RTC_PASSWORD#>"></div>
+		</div>
+		<p class="help-block"><#LANG_GO2RTC_RTSP_HELP#></p>
+	</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_WAIT#>:</label>
+	<div class="col-sm-8 col-md-6">
+		<input type="number" min="2" max="25" name="go2rtc_local_wait" class="form-control g2-num" value="[#GO2RTC_LOCAL_WAIT#]" placeholder="6">
+		<p class="help-block"><#LANG_GO2RTC_WAIT_HELP#></p>
+	</div>
+</div>
 </div>
 <div id="g2_external_fields">
 <div class="form-group">
@@ -226,11 +259,10 @@
 		<p class="help-block"><#LANG_GO2RTC_API_LOGIN_HELP#></p>
 	</div>
 </div>
-</div>
 <div class="form-group">
 	<label class="col-sm-4 col-md-3 control-label"><#LANG_GO2RTC_DEVICE_URL#>:</label>
 	<div class="col-sm-8 col-md-6">
-		<input type="text" name="go2rtc_device_url" class="form-control" value="[#GO2RTC_DEVICE_URL#]" placeholder="[#GO2RTC_DEVICE_AUTO#]">
+		<input type="text" name="go2rtc_device_url" class="form-control" value="[#GO2RTC_DEVICE_URL#]" placeholder="[#GO2RTC_DEVICE_AUTO_EXT#]">
 		<p class="help-block"><#LANG_GO2RTC_DEVICE_URL_HELP#></p>
 	</div>
 </div>
@@ -239,13 +271,6 @@
 	<div class="col-sm-8 col-md-6">
 		<input type="text" name="go2rtc_link_url" class="form-control" value="[#GO2RTC_LINK_URL#]" placeholder="https://home.example.com">
 		<p class="help-block"><#LANG_GO2RTC_LINK_URL_HELP#></p>
-	</div>
-</div>
-<div class="form-group">
-	<label class="col-sm-4 col-md-3 control-label g2-empty">&nbsp;</label>
-	<div class="col-sm-8 col-md-6">
-		<div class="checkbox"><label><input type="checkbox" name="go2rtc_view_php" value="1"[#if GO2RTC_VIEW_PHP="1"#] checked[#endif#]> <#LANG_GO2RTC_VIEW_PHP#></label></div>
-		<p class="help-block"><#LANG_GO2RTC_VIEW_PHP_HELP#></p>
 	</div>
 </div>
 <div class="form-group">
@@ -264,6 +289,14 @@
 	<div class="col-sm-8 col-md-6">
 		<input type="number" min="2" max="25" name="go2rtc_wait" class="form-control g2-num" value="[#GO2RTC_WAIT#]" placeholder="6">
 		<p class="help-block"><#LANG_GO2RTC_WAIT_HELP#></p>
+	</div>
+</div>
+</div>
+<div class="form-group">
+	<label class="col-sm-4 col-md-3 control-label g2-empty">&nbsp;</label>
+	<div class="col-sm-8 col-md-6">
+		<div class="checkbox"><label><input type="checkbox" name="go2rtc_view_php" value="1"[#if GO2RTC_VIEW_PHP="1"#] checked[#endif#]> <#LANG_GO2RTC_VIEW_PHP#></label></div>
+		<p class="help-block"><#LANG_GO2RTC_VIEW_PHP_HELP#></p>
 	</div>
 </div>
 <div class="form-group">
@@ -531,7 +564,13 @@
 			var box = tile.querySelector('.g2-box');
 			var poster = (playing[i] && tiles[i]) ? null : go2rtcViewer.capture(box);
 			grid(false);
-			document.getElementById('g2_live_name').textContent = '📹 ' + tile.getAttribute('data-title');
+			var liveName = document.getElementById('g2_live_name'), liveIco = document.createElement('img');
+			liveIco.src = '<#ROOTHTML#>img/modules/go2rtc.png';
+			liveIco.alt = '';
+			liveIco.style.cssText = 'height:18px;width:18px;vertical-align:-3px';
+			liveName.textContent = '';
+			liveName.appendChild(liveIco);
+			liveName.appendChild(document.createTextNode(' ' + tile.getAttribute('data-title')));
 			var state = document.getElementById('g2_live_state');
 			live.classList.add('on');
 			liveSound.style.display = tile.getAttribute('data-audio') == '1' ? '' : 'none';

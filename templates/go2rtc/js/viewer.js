@@ -591,24 +591,31 @@
 				if (m.paused) m.play().catch(function () {}); else m.pause();
 				ui.refresh();
 			});
-			shotB = btn('⬇', tx('shot'), function () {
+			shotB = btn('\u2B07', tx('shot'), function () {
+				// кадр — в файл через blob (data:-ссылки браузеры для скачивания часто не принимают)
+				var m = mediaEl(), d = new Date(), z = function (n) { return (n < 10 ? '0' : '') + n; };
+				var name = ((opts.direct && opts.direct.src) || 'camera') + '-' + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate())
+					+ '-' + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + '.jpg';
+				function save(blob) {
+					if (!blob) { flash(tx('unsupported')); return; }
+					var u = URL.createObjectURL(blob), a = document.createElement('a');
+					a.href = u;
+					a.download = name;
+					a.style.display = 'none';
+					document.body.appendChild(a);
+					a.click();
+					setTimeout(function () { if (a.parentNode) a.parentNode.removeChild(a); URL.revokeObjectURL(u); }, 2000);
+				}
 				try {
-					var a = document.createElement('a'), m = mediaEl();
 					if (kind() == 'mjpeg' && m.poster) {
-						a.href = m.poster;
-					} else {
-						if (!m.videoWidth) return;
+						fetch(m.poster).then(function (r) { return r.blob(); }).then(save, function () { flash(tx('unsupported')); });
+					} else if (m.videoWidth) {
 						var c = document.createElement('canvas');
 						c.width = m.videoWidth;
 						c.height = m.videoHeight;
 						c.getContext('2d').drawImage(m, 0, 0);
-						a.href = c.toDataURL('image/jpeg', 0.92);
+						c.toBlob(save, 'image/jpeg', 0.92);   // видео с другого адреса без CORS браузер не даёт сохранить — тогда ошибка
 					}
-					var d = new Date(), z = function (n) { return (n < 10 ? '0' : '') + n; };
-					a.download = ((opts.direct && opts.direct.src) || 'camera') + '-' + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + '-' + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + '.jpg';
-					document.body.appendChild(a);
-					a.click();
-					document.body.removeChild(a);
 				} catch (e) {
 					flash(tx('unsupported'));
 				}
@@ -702,7 +709,7 @@
 			gear.addEventListener('click', function (e) { e.stopPropagation(); show(!open); });
 			['mousedown', 'touchstart', 'dblclick'].forEach(function (n) { gear.addEventListener(n, function (e) { e.stopPropagation(); }); });
 			var outside = function (e) {
-				if (open && !panel.contains(e.target) && e.target !== gear) {
+				if (open && e.isTrusted && !panel.contains(e.target) && e.target !== gear) {   // isTrusted: свои click() (ссылка на скачивание кадра) не трогаем
 					show(false);
 					e.stopPropagation();   // нажатие мимо панели только закрывает её (плитка не переключается)
 					e.preventDefault();
