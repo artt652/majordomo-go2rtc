@@ -7,6 +7,7 @@
  * гостевые ссылки, WebTorrent). Вставка в сцены и страницы — usual() ([#module name="go2rtc" cam="…"#]). Функции для других модулей и сценариев — go2rtc_lib.inc.php (константа GO2RTC_API).
  *
  * Входы api.php/module/go2rtc/… (ядро вызывает api()):
+ *   snap?src=…&sig=…  — постоянный кадр камеры для устройства (go2rtcSnapUrl), без срока;
  *   frame?src=…&exp=…&sig=…  — кадр камеры по подписанной ссылке (go2rtcSignedUrl); &w= — ширина;
  *   whep?src=…&exp=…&sig=…   — согласование WebRTC (POST, SDP) по подписанной ссылке;
  *   guest/<id>               — гостевая страница просмотра (временная ссылка без входа);
@@ -615,6 +616,19 @@ class go2rtc extends module
         }
         header('Cache-Control: no-store');
         header('Referrer-Policy: no-referrer');
+        // постоянный кадр для свойства устройства: подпись только на кадр этой камеры (go2rtcSnapUrl)
+        if ($op == 'snap') {
+            $src = isset($params['src']) ? (string)$params['src'] : '';
+            $sig = isset($params['sig']) ? (string)$params['sig'] : '';
+            $jpeg = ($src != '' && $sig != '' && hash_equals(go2rtcSnapSign($src), $sig) && go2rtcEnabled() && go2rtcHas($src)) ? go2rtcSnapFrame($src) : '';
+            if ($jpeg == '') {
+                header('HTTP/1.1 404 Not Found');
+                exit;
+            }
+            header('Content-Type: image/jpeg');
+            echo $jpeg;
+            exit;
+        }
         // камера: по гостевой ссылке (id в пути) или по подписи
         $cam = '';
         $link = array();

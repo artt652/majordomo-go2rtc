@@ -476,6 +476,37 @@ function go2rtcSignOk($name, $exp, $sig)
     return (int)$exp > time() && is_string($sig) && hash_equals(go2rtcSign($name, (int)$exp), $sig);
 }
 
+// Постоянная ссылка на кадр для свойства устройства (snapshotURL): без пароля API и без срока. Подпись — только на «snap» и
+// имя потока: по ней нельзя получить видео и она не подходит к другим ссылкам модуля. Отозвать — сменить SECRET модуля.
+function go2rtcSnapSign($name)
+{
+    return hash_hmac('sha256', 'snap|' . (string)$name, go2rtcSecret());
+}
+
+function go2rtcSnapUrl($name)
+{
+    return go2rtcServerBase() . ROOTHTML . 'api.php/module/go2rtc/snap?src=' . rawurlencode($name) . '&sig=' . go2rtcSnapSign($name);
+}
+
+// Кадр для постоянной ссылки: не старше 30 с — из сохранённого (превью устройства не ждёт камеру на каждый показ),
+// иначе свежий; камера не ответила — последний сохранённый
+function go2rtcSnapFrame($name)
+{
+    $file = ROOT . 'cms/cached/go2rtc/snap_' . md5($name) . '.jpg';
+    if (is_file($file) && filemtime($file) > time() - 30) {
+        return (string)@file_get_contents($file);
+    }
+    $jpeg = go2rtcFrame($name);
+    if ($jpeg != '') {
+        if (!is_dir(dirname($file))) {
+            @mkdir(dirname($file), 0777, true);
+        }
+        @file_put_contents($file, $jpeg);
+        return $jpeg;
+    }
+    return is_file($file) ? (string)@file_get_contents($file) : '';
+}
+
 // Адрес сервера MajorDoMo для устройств: BASE_URL, а 127.0.0.1 / localhost в нём — адрес этой машины в сети:
 // как в «Адресе go2rtc для устройств» (в Docker автоопределение даёт адрес контейнера), иначе определённый сам
 function go2rtcServerBase()
@@ -1194,8 +1225,10 @@ function go2rtcCameraLinkObject($camera)
     // кадр для сервера: адрес API (на этой машине — без пароля; иначе логин API в ссылке, видна только в свойствах объекта).
     // Сначала кадр: превью устройства (метод updatePreview, его вызывает изменение streamURL) берёт snapshotURL, если он есть,
     // иначе — кадр из RTSP через ffmpeg (модуль thumb)
-    $auth = ($cfg['user'] != '') ? rawurlencode($cfg['user']) . ':' . rawurlencode($cfg['password']) . '@' : '';
-    $set('snapshotURL', preg_replace('#^(https?://)#i', '$1' . $auth, $cfg['url']) . '/api/frame.jpeg?src=' . rawurlencode($camera['NAME']));
+    // API с логином: пароль в адрес не пишем — thumb.php вырезает его из адреса, а превью устройства (snapshotPreviewURL,
+    // previewHTML) показывало бы его открытым; вместо этого — постоянная ссылка модуля (пароль подставляет модуль)
+    $set('snapshotURL', ($cfg['user'] != '') ? go2rtcSnapUrl($camera['NAME'])
+        : $cfg['url'] . '/api/frame.jpeg?src=' . rawurlencode($camera['NAME']));
     $set('streamURL', go2rtcUrl($camera['NAME'], 'rtsp'));
     $set('streamURL_HQ', !empty($camera['HQ_NAME']) && go2rtcHas($camera['HQ_NAME']) ? go2rtcUrl($camera['HQ_NAME'], 'rtsp') : '');
     // превью пересобрать и тогда, когда адреса потоков не менялись (устройство, созданное раньше, — с превью из RTSP)
