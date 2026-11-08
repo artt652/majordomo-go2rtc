@@ -620,9 +620,22 @@ class go2rtc extends module
         if ($op == 'snap') {
             $src = isset($params['src']) ? (string)$params['src'] : '';
             $sig = isset($params['sig']) ? (string)$params['sig'] : '';
-            $jpeg = ($src != '' && $sig != '' && hash_equals(go2rtcSnapSign($src), $sig) && go2rtcEnabled() && go2rtcHas($src)) ? go2rtcSnapFrame($src) : '';
-            if ($jpeg == '') {
+            if ($src == '' || $sig == '' || !hash_equals(go2rtcSnapSign($src), $sig)) {
+                header('HTTP/1.1 403 Forbidden');
+                echo 'bad signature';
+                exit;
+            }
+            if (!go2rtcEnabled() || !go2rtcHas($src)) {
                 header('HTTP/1.1 404 Not Found');
+                echo 'no such stream';
+                exit;
+            }
+            $jpeg = go2rtcSnapFrame($src);
+            if ($jpeg == '') {
+                // камера не отдала кадр за время ожидания («Время ожидания» в настройках) — для медленных источников (скрипт) увеличить
+                DebMes('go2rtc: snap ' . $src . ': нет кадра за ' . go2rtcConfig()['wait'] . ' с', 'go2rtc');
+                header('HTTP/1.1 504 Gateway Timeout');
+                echo 'no frame';
                 exit;
             }
             header('Content-Type: image/jpeg');
