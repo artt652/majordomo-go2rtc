@@ -1030,18 +1030,6 @@ function go2rtcNamesView()
     SQLExec("CREATE VIEW go2rtc AS SELECT ID, NAME, TITLE FROM go2rtc_cameras");
 }
 
-// Название камеры для модуля «Правила безопасности» (список правил и карточка правила, тип объекта go2rtc, ID — go2rtc_cameras.ID).
-// Вызывается ядром через патч patches/50-security-rules-object-titles.replace; без патча не используется
-function go2rtcSecurityObjectTitle($camera_id)
-{
-    $camera = SQLSelectOne("SELECT NAME, TITLE FROM go2rtc_cameras WHERE ID=" . (int)$camera_id);
-    if (empty($camera['NAME'])) {
-        return '';
-    }
-    $title = trim((string)$camera['TITLE']);
-    return htmlspecialchars(($title != '' && $title != $camera['NAME']) ? $title . ' (' . $camera['NAME'] . ')' : $camera['NAME'], ENT_QUOTES, 'UTF-8');
-}
-
 // Правило камеры словами (для списка в панели): «все», «пользователи: …», «кроме терминалов: …», «по времени», «по условию»
 function go2rtcRuleText($camera_id)
 {
