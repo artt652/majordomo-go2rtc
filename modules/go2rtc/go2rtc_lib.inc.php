@@ -1021,15 +1021,6 @@ function go2rtcCamerasFor($terminal_name, $user_id, $is_admin)
     return $result;
 }
 
-// View `go2rtc` (ID, NAME, TITLE) over go2rtc_cameras: security_rules resolves object names from the table named after the rule type
-function go2rtcNamesView()
-{
-    if (SQLSelectOne("SHOW TABLES LIKE 'go2rtc'")) {
-        return;
-    }
-    SQLExec("CREATE VIEW go2rtc AS SELECT ID, NAME, TITLE FROM go2rtc_cameras");
-}
-
 // Название камеры для модуля «Правила безопасности» (список правил и карточка правила, тип объекта go2rtc, ID — go2rtc_cameras.ID).
 // Вызывается ядром через патч patches/50-security-rules-object-titles.replace; без патча не используется
 function go2rtcSecurityObjectTitle($camera_id)

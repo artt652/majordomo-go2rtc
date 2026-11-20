@@ -65,7 +65,6 @@ class go2rtc extends module
         if (!SQLSelectOne("SHOW COLUMNS FROM go2rtc_cameras LIKE 'AUDIO'") || !SQLSelectOne("SHOW COLUMNS FROM go2rtc_cameras LIKE 'SOURCE_HQ'")) {
             $this->dbInstall('');
         }
-        go2rtcNamesView();
         $h = function ($text) {
             return htmlspecialchars((string)$text, ENT_QUOTES, 'UTF-8');
         };
@@ -867,7 +866,6 @@ class go2rtc extends module
  go2rtc_cameras: INDEX (LINKED_OBJECT)
 EOD;
         parent::dbInstall($data);
-        go2rtcNamesView();
     }
 
     // Однократный перенос настроек камер: из модуля «Сообщения» (app_messages), иначе из полной версии «Терминалов».
