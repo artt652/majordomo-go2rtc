@@ -203,7 +203,12 @@ class go2rtc extends module
         go2rtcCamerasSync();
         go2rtcRulesMigrate();
         // камера: название, порядок, второй поток, привязка к объекту
-        $camera = gr('camera_id', 'int') ? go2rtcCameraGet(gr('camera_id', 'int')) : array();
+        // стандартная адресация MajorDoMo (view_mode=edit_go2rtc&id=N, как у других модулей) = camera_id=N
+        $camera_id = gr('camera_id', 'int');
+        if (!$camera_id && gr('view_mode') == 'edit_go2rtc') {
+            $camera_id = gr('id', 'int');
+        }
+        $camera = $camera_id ? go2rtcCameraGet($camera_id) : array();
         if (!empty($camera['ID']) || (gr('camera_id') == 'new' && go2rtcLocal())) {
             if (empty($camera['ID'])) {
                 $camera = array('ID' => 0, 'NAME' => '', 'TITLE' => '', 'PRIORITY' => 0, 'HIDDEN' => 0, 'AUDIO' => 1, 'HQ_NAME' => '',
