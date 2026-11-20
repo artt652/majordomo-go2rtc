@@ -3,10 +3,11 @@
  * Камеры (go2rtc) — модуль MajorDoMo.
  *
  * Панель управления: «Камеры» (просмотр; у каждой камеры — название, порядок, второй поток, привязка к объекту),
- * «Настройки» (go2rtc), «Права» (правила «Контроля доступа» ядра на каждую камеру), «Ссылки» (временный доступ,
+ * «Настройки» (go2rtc), «Права» (правила модуля «Правила безопасности» ядра на каждую камеру), «Ссылки» (временный доступ,
  * гостевые ссылки, WebTorrent). Вставка в сцены и страницы — usual() ([#module name="go2rtc" cam="…"#]). Функции для других модулей и сценариев — go2rtc_lib.inc.php (константа GO2RTC_API).
  *
  * Входы api.php/module/go2rtc/… (ядро вызывает api()):
+ *   snap?src=…&sig=…  — постоянный кадр камеры для устройства (go2rtcSnapUrl), без срока;
  *   frame?src=…&exp=…&sig=…  — кадр камеры по подписанной ссылке (go2rtcSignedUrl); &w= — ширина;
  *   whep?src=…&exp=…&sig=…   — согласование WebRTC (POST, SDP) по подписанной ссылке;
  *   guest/<id>               — гостевая страница просмотра (временная ссылка без входа);
@@ -162,7 +163,7 @@ class go2rtc extends module
                 $out['TAB'] = 'tab_settings';
             }
         }
-        // камеры без правила «Контроля доступа»: только администратору или всем
+        // камеры без правила модуля «Правила безопасности»: только администратору или всем
         if (gr('default_access_save')) {
             $this->config['GO2RTC_DEFAULT_ACCESS'] = (gr('default_access') == 'all') ? 'all' : 'admin';
             $this->saveConfig();
@@ -202,7 +203,12 @@ class go2rtc extends module
         go2rtcCamerasSync();
         go2rtcRulesMigrate();
         // камера: название, порядок, второй поток, привязка к объекту
-        $camera = gr('camera_id', 'int') ? go2rtcCameraGet(gr('camera_id', 'int')) : array();
+        // стандартная адресация MajorDoMo (view_mode=edit_go2rtc&id=N, как у других модулей) = camera_id=N
+        $camera_id = gr('camera_id', 'int');
+        if (!$camera_id && gr('view_mode') == 'edit_go2rtc') {
+            $camera_id = gr('id', 'int');
+        }
+        $camera = $camera_id ? go2rtcCameraGet($camera_id) : array();
         if (!empty($camera['ID']) || (gr('camera_id') == 'new' && go2rtcLocal())) {
             if (empty($camera['ID'])) {
                 $camera = array('ID' => 0, 'NAME' => '', 'TITLE' => '', 'PRIORITY' => 0, 'HIDDEN' => 0, 'AUDIO' => 1, 'HQ_NAME' => '',
@@ -518,7 +524,7 @@ class go2rtc extends module
     //   mode   — snapshot (по умолчанию: снимки, нажатие — видео на весь экран) | live (сразу видео в блоке);
     //   width, height — размер блока (CSS, по умолчанию 100% и 16:9); caption — подпись (по умолчанию — название камеры);
     //   muted  — 1 (по умолчанию: без звука, включается кнопкой) | 0 (сразу со звуком, если у камеры он есть).
-    // Видит тот, кому камера разрешена (правило «Контроля доступа», вход по сессии ядра). Ссылки — на 24 часа,
+    // Видит тот, кому камера разрешена (правило модуля «Правила безопасности», вход по сессии ядра). Ссылки — на 24 часа,
     // открытая сутками сцена (планшет на стене) берёт новые сама: /ajax/go2rtc.html?op=renew&cam=…
     function usual(&$out)
     {
@@ -615,6 +621,32 @@ class go2rtc extends module
         }
         header('Cache-Control: no-store');
         header('Referrer-Policy: no-referrer');
+        // постоянный кадр для свойства устройства: подпись только на кадр этой камеры (go2rtcSnapUrl)
+        if ($op == 'snap') {
+            $src = isset($params['src']) ? (string)$params['src'] : '';
+            $sig = isset($params['sig']) ? (string)$params['sig'] : '';
+            if ($src == '' || $sig == '' || !hash_equals(go2rtcSnapSign($src), $sig)) {
+                header('HTTP/1.1 403 Forbidden');
+                echo 'bad signature';
+                exit;
+            }
+            if (!go2rtcEnabled() || !go2rtcHas($src)) {
+                header('HTTP/1.1 404 Not Found');
+                echo 'no such stream';
+                exit;
+            }
+            $jpeg = go2rtcSnapFrame($src);
+            if ($jpeg == '') {
+                // камера не отдала кадр за время ожидания («Время ожидания» в настройках) — для медленных источников (скрипт) увеличить
+                DebMes('go2rtc: snap ' . $src . ': нет кадра за ' . go2rtcConfig()['wait'] . ' с', 'go2rtc');
+                header('HTTP/1.1 504 Gateway Timeout');
+                echo 'no frame';
+                exit;
+            }
+            header('Content-Type: image/jpeg');
+            echo $jpeg;
+            exit;
+        }
         // камера: по гостевой ссылке (id в пути) или по подписи
         $cam = '';
         $link = array();

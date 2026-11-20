@@ -16,8 +16,8 @@
  *   GO2RTC_RTSP_PORT, GO2RTC_RTSP_USER, GO2RTC_RTSP_PASSWORD — RTSP-сервер go2rtc (свой пароль, только просмотр);
  *   GO2RTC_WEBTORRENT — внешний просмотр через WebTorrent (срок ссылки — при создании);
  *   GO2RTC_WAIT — сколько ждать первый кадр камеры, с (снимок, начало просмотра; пусто — 6);
- *   GO2RTC_DEFAULT_ACCESS — камеры без правила «Контроля доступа»: admin | all; SECRET — ключ подписи ссылок.
- * Права на камеры — «Контроль доступа» ядра (security_rules, тип go2rtc); камеры — таблица go2rtc_cameras.
+ *   GO2RTC_DEFAULT_ACCESS — камеры без правила модуля «Правила безопасности»: admin | all; SECRET — ключ подписи ссылок.
+ * Права на камеры — «Правила безопасности» ядра (security_rules, тип go2rtc); камеры — таблица go2rtc_cameras.
  * Временный доступ, гостевые ссылки и ссылки WebTorrent — таблица go2rtc_links.
  *
  * Кадр и WebRTC для браузеров и устройств — подписанные ссылки api.php/module/go2rtc/frame|whep?src=…&exp=…&sig=…
@@ -73,7 +73,7 @@ function go2rtcUiScript()
 {
     $texts = array();
     foreach (array('auto', 'tcp', 'whep', 'php', 'snapshots', 'mode', 'stream', 'pause', 'play', 'shot', 'pip', 'mic', 'stats',
-        'type', 'size', 'fps', 'rate', 'rtt', 'loss', 'delay', 'connecting', 'failed', 'settings', 'unsupported') as $k) {
+        'type', 'size', 'fps', 'rate', 'rtt', 'loss', 'delay', 'connecting', 'failed', 'settings', 'close', 'unsupported') as $k) {
         $texts[$k] = go2rtcLang('GO2RTC_UI_' . strtoupper($k));
     }
     return 'go2rtcViewer.texts=' . json_encode($texts, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';';
@@ -476,6 +476,37 @@ function go2rtcSignOk($name, $exp, $sig)
     return (int)$exp > time() && is_string($sig) && hash_equals(go2rtcSign($name, (int)$exp), $sig);
 }
 
+// Постоянная ссылка на кадр для свойства устройства (snapshotURL): без пароля API и без срока. Подпись — только на «snap» и
+// имя потока: по ней нельзя получить видео и она не подходит к другим ссылкам модуля. Отозвать — сменить SECRET модуля.
+function go2rtcSnapSign($name)
+{
+    return hash_hmac('sha256', 'snap|' . (string)$name, go2rtcSecret());
+}
+
+function go2rtcSnapUrl($name)
+{
+    return go2rtcServerBase() . ROOTHTML . 'api.php/module/go2rtc/snap?src=' . rawurlencode($name) . '&sig=' . go2rtcSnapSign($name);
+}
+
+// Кадр для постоянной ссылки: не старше 30 с — из сохранённого (превью устройства не ждёт камеру на каждый показ),
+// иначе свежий; камера не ответила — последний сохранённый
+function go2rtcSnapFrame($name)
+{
+    $file = ROOT . 'cms/cached/go2rtc/snap_' . md5($name) . '.jpg';
+    if (is_file($file) && filemtime($file) > time() - 30) {
+        return (string)@file_get_contents($file);
+    }
+    $jpeg = go2rtcFrame($name);
+    if ($jpeg != '') {
+        if (!is_dir(dirname($file))) {
+            @mkdir(dirname($file), 0777, true);
+        }
+        @file_put_contents($file, $jpeg);
+        return $jpeg;
+    }
+    return is_file($file) ? (string)@file_get_contents($file) : '';
+}
+
 // Адрес сервера MajorDoMo для устройств: BASE_URL, а 127.0.0.1 / localhost в нём — адрес этой машины в сети:
 // как в «Адресе go2rtc для устройств» (в Docker автоопределение даёт адрес контейнера), иначе определённый сам
 function go2rtcServerBase()
@@ -874,7 +905,7 @@ function go2rtcWhepProxy($name)
     exit;
 }
 
-// --- Права на камеры: «Контроль доступа» ядра (security_rules), тип объекта go2rtc, ID — камера из go2rtc_cameras ---
+// --- Права на камеры: «Правила безопасности» ядра (security_rules), тип объекта go2rtc, ID — камера из go2rtc_cameras ---
 // Правило камеры — как у любого объекта MajorDoMo: пользователи, терминалы (с «кроме»), время, условия по свойствам.
 // Камера без правила — по настройке модуля GO2RTC_DEFAULT_ACCESS: 'admin' — только администратору (по умолчанию),
 // 'all' — всем. Администратор (вход в панель управления или пользователь с правами администратора) видит все камеры.
@@ -887,7 +918,7 @@ function go2rtcDefaultAccess()
     return (isset($config['GO2RTC_DEFAULT_ACCESS']) && $config['GO2RTC_DEFAULT_ACCESS'] == 'all') ? 'all' : 'admin';
 }
 
-// Есть ли у камеры правило «Контроля доступа»
+// Есть ли у камеры правило модуля «Правила безопасности»
 function go2rtcRuleDefined($camera_id)
 {
     if (!(int)$camera_id || !function_exists('checkAccessDefined') || !SQLSelectOne("SHOW TABLES LIKE 'security_rules'")) {
@@ -990,6 +1021,18 @@ function go2rtcCamerasFor($terminal_name, $user_id, $is_admin)
     return $result;
 }
 
+// Название камеры для модуля «Правила безопасности» (список правил и карточка правила, тип объекта go2rtc, ID — go2rtc_cameras.ID).
+// Вызывается ядром через патч patches/50-security-rules-object-titles.replace; без патча не используется
+function go2rtcSecurityObjectTitle($camera_id)
+{
+    $camera = SQLSelectOne("SELECT NAME, TITLE FROM go2rtc_cameras WHERE ID=" . (int)$camera_id);
+    if (empty($camera['NAME'])) {
+        return '';
+    }
+    $title = trim((string)$camera['TITLE']);
+    return htmlspecialchars(($title != '' && $title != $camera['NAME']) ? $title . ' (' . $camera['NAME'] . ')' : $camera['NAME'], ENT_QUOTES, 'UTF-8');
+}
+
 // Правило камеры словами (для списка в панели): «все», «пользователи: …», «кроме терминалов: …», «по времени», «по условию»
 function go2rtcRuleText($camera_id)
 {
@@ -1068,7 +1111,7 @@ function go2rtcRulesMigrate()
 
 // --- Камеры модуля (таблица go2rtc_cameras): название, порядок, привязка к объектам ---
 // Строки появляются из списка go2rtc (go2rtcCamerasSync); поток, пропавший из go2rtc, помечается MISSING, но строка
-// (название, привязки) остаётся — вернётся поток, вернётся и камера. Числовой ID нужен «Контролю доступа» ядра.
+// (название, привязки) остаётся — вернётся поток, вернётся и камера. Числовой ID нужен модулю «Правила безопасности» ядра.
 
 // Пополнить таблицу из списка go2rtc. Возвращает число новых камер
 function go2rtcCamerasSync()
@@ -1194,8 +1237,10 @@ function go2rtcCameraLinkObject($camera)
     // кадр для сервера: адрес API (на этой машине — без пароля; иначе логин API в ссылке, видна только в свойствах объекта).
     // Сначала кадр: превью устройства (метод updatePreview, его вызывает изменение streamURL) берёт snapshotURL, если он есть,
     // иначе — кадр из RTSP через ffmpeg (модуль thumb)
-    $auth = ($cfg['user'] != '') ? rawurlencode($cfg['user']) . ':' . rawurlencode($cfg['password']) . '@' : '';
-    $set('snapshotURL', preg_replace('#^(https?://)#i', '$1' . $auth, $cfg['url']) . '/api/frame.jpeg?src=' . rawurlencode($camera['NAME']));
+    // API с логином: пароль в адрес не пишем — thumb.php вырезает его из адреса, а превью устройства (snapshotPreviewURL,
+    // previewHTML) показывало бы его открытым; вместо этого — постоянная ссылка модуля (пароль подставляет модуль)
+    $set('snapshotURL', ($cfg['user'] != '') ? go2rtcSnapUrl($camera['NAME'])
+        : $cfg['url'] . '/api/frame.jpeg?src=' . rawurlencode($camera['NAME']));
     $set('streamURL', go2rtcUrl($camera['NAME'], 'rtsp'));
     $set('streamURL_HQ', !empty($camera['HQ_NAME']) && go2rtcHas($camera['HQ_NAME']) ? go2rtcUrl($camera['HQ_NAME'], 'rtsp') : '');
     // превью пересобрать и тогда, когда адреса потоков не менялись (устройство, созданное раньше, — с превью из RTSP)
